@@ -36,6 +36,34 @@
 | `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict, GET /api/v1/health; BackgroundTask for DB insert |
 | `src/api/main.py` | ✅ | Lifespan (warms model singleton), CORS, global 500 handler, logging |
 
+### Sample `/predict` Request Body
+
+```json
+{
+  "experience_level": 2,
+  "employment_type": 3,
+  "remote_ratio": 100,
+  "company_size": 1,
+  "work_year": 2024,
+  "job_family": 2,
+  "location_region": 3,
+  "is_us_company": 1
+}
+```
+
+| Field | Type | Values |
+|-------|------|--------|
+| `experience_level` | int | 0 = Entry-level · 1 = Mid-level · 2 = Senior · 3 = Executive |
+| `employment_type` | int | 0 = Freelance · 1 = Part-time · 2 = Contract · 3 = Full-time |
+| `remote_ratio` | int | 0 (on-site) · 50 (hybrid) · 100 (fully remote) |
+| `company_size` | int | 0 = Small · 1 = Medium · 2 = Large |
+| `work_year` | int | Calendar year, e.g. `2024` |
+| `job_family` | int | 0 = Other · 1 = Analytics · 2 = Data Science · 3 = Data Engineering · 4 = ML/AI · 5 = Leadership |
+| `location_region` | int | 0 = Rest of World · 1 = Asia Pacific · 2 = Europe · 3 = North America |
+| `is_us_company` | int | 0 = Non-US company · 1 = US company |
+
+> The body above represents a **Senior Data Scientist**, full-time, fully remote, **US-based medium company, North America**.
+
 ---
 
 ## 4 · LLM Integration
@@ -83,10 +111,10 @@
 | File | Status | Notes |
 |------|--------|-------|
 | `tests/test_data/test_ingestion.py` | ⬜ | load_raw() with dirty fixture |
-| `tests/test_data/test_cleaning.py` | ⬜ | Outlier capping, leakage column removal |
-| `tests/test_data/test_engineering.py` | ⬜ | job_family mapping, location_region mapping |
-| `tests/test_models/test_train.py` | ⬜ | Training on synthetic data |
-| `tests/test_api/test_prediction.py` | ⬜ | POST /predict happy path, 422, 500 |
+| `tests/test_data/test_cleaning.py` | ✅ | 12 tests — leakage drops, IQR cap, no-mutation, idempotency |
+| `tests/test_data/test_engineering.py` | ✅ | 35 tests — job_family (11 titles), location_region (8 countries), ordinal encoding, build_features |
+| `tests/test_models/test_train.py` | ✅ | 10 tests — pipeline shape, predict output, error on missing cols, save/load roundtrip |
+| `tests/test_api/test_prediction.py` | ✅ | 14 tests — happy path, 4× 422 validation, 2× 500 safe message, health check |
 | `tests/test_llm/test_narrative.py` | ⬜ | Mocked Ollama client, parse_narrative() |
 
 ---

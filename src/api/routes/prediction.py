@@ -58,6 +58,20 @@ async def predict_salary(
             status_code=422,
             detail={"detail": str(exc), "code": "FEATURE_MISMATCH"},
         ) from exc
+    except Exception as exc:
+        logger.error(
+            "predict_salary | unexpected error | prediction_id=%s | error=%s",
+            prediction_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "detail": "An unexpected error occurred. Please try again later.",
+                "code": "INTERNAL_ERROR",
+            },
+        ) from exc
 
     model_version: str = getattr(request.app.state, "model_version", "unknown")
 
