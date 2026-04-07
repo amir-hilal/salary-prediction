@@ -52,7 +52,7 @@ async def predict_salary(
     features = payload.model_dump()
 
     try:
-        salary = predict(features)
+        result = predict(features)
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
@@ -75,16 +75,18 @@ async def predict_salary(
 
     model_version: str = getattr(request.app.state, "model_version", "unknown")
 
-    background_tasks.add_task(_persist_prediction, prediction_id, features, salary)
+    background_tasks.add_task(_persist_prediction, prediction_id, features, result.point_estimate)
 
     logger.info(
         "predict_salary | prediction_id=%s | predicted_salary=%.2f",
         prediction_id,
-        salary,
+        result.point_estimate,
     )
 
     return PredictionResponse(
-        predicted_salary=salary,
+        predicted_salary=result.point_estimate,
+        salary_range_low=result.range_low,
+        salary_range_high=result.range_high,
         currency="USD",
         model_version=model_version,
         prediction_id=prediction_id,

@@ -52,13 +52,15 @@ Kaggle Dataset
 - Processed data is persisted to `data/processed/` for training
 
 ### 2. Model Training (`src/models/`)
-- Trains a regression model to predict salary
-- Evaluation metrics tracked (RMSE, MAE, R²)
-- Trained artifact serialized to `models/artifacts/`
-- Registry entry written to `models/registry/`
+- Trains a `DecisionTreeRegressor` to predict salary
+- After training, `compute_leaf_ranges()` records the **Q25–Q75 interquartile range** of actual training salaries in each of the tree's leaf nodes
+- The pipeline and leaf-range map are bundled together and serialized to `models/artifacts/` as a single `.joblib` artifact
+- Evaluation metrics tracked (RMSE, MAE, R², MAPE)
+- Registry entry written to `models/registry/latest.json`
 
 ### 3. FastAPI Prediction Endpoint (`src/api/`)
-- `POST /predict` — accepts candidate features, returns predicted salary
+- `POST /api/v1/predict` — accepts candidate features, returns a **point estimate plus a Q25–Q75 salary range**
+- The range comes directly from the leaf node the candidate lands in — peers with the same feature profile in the training data
 - Pydantic schemas for strict input/output validation
 - Deployed as a containerized service
 
@@ -252,7 +254,9 @@ See [.env.example](.env.example) for the full list. Key variables:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| ML framework | scikit-learn (`DecisionTreeRegressor`) | Project requirement; handles ordinal/label-encoded features well, no scaling needed |
+| ML framework | scikit-learn (`DecisionTreeRegressor`) | Project requirement; tree splits produce natural peer groups used for salary ranges |
+| Salary output | Point estimate + Q25–Q75 leaf range | A single number is misleading; ranges reflect real variation among comparable candidates in training data |
+| Range method | Decision Tree leaf node IQR | Each leaf contains training samples with the same routing — their Q25/Q75 is the most honest range available |
 | API framework | FastAPI | Async, auto-docs, Pydantic integration |
 | LLM runtime | Ollama (local) | No cloud cost, privacy, easy model swap |
 | Database | Supabase | Postgres + realtime + REST out of the box |
@@ -270,14 +274,17 @@ See [.env.example](.env.example) for the full list. Key variables:
 3. cleaning.py               →  nulls, outliers, duplicates
 4. engineering.py            →  encode categoricals, create interaction terms
 5. preprocessing.py          →  scale numerics, train/test split
-6. train.py                  →  fit model, log metrics
-7. evaluate.py               →  hold-out evaluation, save report
-8. POST /predict             →  real-time inference via FastAPI
-9. narrative.py              →  build Ollama prompt from prediction context
-10. ollama_client.py         →  call local LLM, parse response
-11. charts.py                →  generate Plotly/Matplotlib figure
-12. crud.py                  →  INSERT into Supabase (prediction + narrative + chart)
-13. Streamlit dashboard      →  SELECT from Supabase, render live
+6. train.py                  →  fit Decision Tree, GridSearchCV hyperparameter search
+7. train.py (post-fit)       →  compute_leaf_ranges() — Q25/Q75 per leaf → bundled into artifact
+8. evaluate.py               →  hold-out evaluation, save report
+9. POST /api/v1/predict      →  real-time inference via FastAPI
+                                  → point_estimate (DT prediction)
+                                  → salary_range_low / salary_range_high (Q25–Q75 of leaf peers)
+10. narrative.py             →  build Ollama prompt from prediction context
+11. ollama_client.py         →  call local LLM, parse response
+12. charts.py                →  generate Plotly/Matplotlib figure
+13. crud.py                  →  INSERT into Supabase (prediction + narrative + chart)
+14. Streamlit dashboard      →  SELECT from Supabase, render live
 ```
 
 ---

@@ -2,6 +2,9 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.main import app
+from src.models.predict import PredictionResult
+
+_MOCK_RESULT = PredictionResult(point_estimate=125_000.0, range_low=110_000.0, range_high=140_000.0)
 
 # ── Shared test payload ───────────────────────────────────────────────────────
 # Represents: Senior Data Scientist, full-time, fully remote, US medium company.
@@ -35,32 +38,45 @@ async def client(mocker):
 
 
 async def test_predict_returns_200(client, mocker) -> None:
-    mocker.patch("src.api.routes.prediction.predict", return_value=125_000.0)
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     response = await client.post("/api/v1/predict", json=VALID_PAYLOAD)
     assert response.status_code == 200
 
 
 async def test_predict_response_contains_salary(client, mocker) -> None:
-    mocker.patch("src.api.routes.prediction.predict", return_value=125_000.0)
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
     assert body["predicted_salary"] == 125_000.0
 
 
+async def test_predict_response_contains_range(client, mocker) -> None:
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
+    body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
+    assert body["salary_range_low"] == 110_000.0
+    assert body["salary_range_high"] == 140_000.0
+
+
+async def test_predict_response_range_low_le_high(client, mocker) -> None:
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
+    body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
+    assert body["salary_range_low"] <= body["salary_range_high"]
+
+
 async def test_predict_response_currency_is_usd(client, mocker) -> None:
-    mocker.patch("src.api.routes.prediction.predict", return_value=125_000.0)
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
     assert body["currency"] == "USD"
 
 
 async def test_predict_response_has_prediction_id(client, mocker) -> None:
-    mocker.patch("src.api.routes.prediction.predict", return_value=125_000.0)
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
     assert "prediction_id" in body
     assert len(body["prediction_id"]) == 36  # standard UUID string length
 
 
 async def test_predict_response_has_model_version(client, mocker) -> None:
-    mocker.patch("src.api.routes.prediction.predict", return_value=125_000.0)
+    mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
     assert "model_version" in body
 

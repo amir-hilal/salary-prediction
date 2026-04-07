@@ -67,6 +67,8 @@ class PredictionResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "predicted_salary": 125000.0,
+                "salary_range_low": 110000.0,
+                "salary_range_high": 140000.0,
                 "currency": "USD",
                 "model_version": "20260407_142809",
                 "prediction_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -75,6 +77,8 @@ class PredictionResponse(BaseModel):
     )
 
     predicted_salary: float
+    salary_range_low: float
+    salary_range_high: float
     currency: str
     model_version: str
     prediction_id: str

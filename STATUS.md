@@ -21,10 +21,10 @@
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/models/train.py` | ✅ | Decision Tree pipeline, GridSearchCV over max_depth / min_samples_split / min_samples_leaf |
+| `src/models/train.py` | ✅ | Decision Tree pipeline, GridSearchCV; compute_leaf_ranges() bundles Q25–Q75 per leaf into artifact |
 | `src/models/evaluate.py` | ✅ | RMSE, MAE, R², MAPE; residual + predicted-vs-actual plots; registry entry with RMSE regression guard |
-| `src/models/predict.py` | ✅ | predict(features) singleton loaded from registry/latest.json |
-| `models/registry/latest.json` | ✅ | Written — RMSE=$42,564, R²=0.453, max_depth=5 |
+| `src/models/predict.py` | ✅ | predict(features) → PredictionResult(point_estimate, range_low, range_high); singleton from registry |
+| `models/registry/latest.json` | ✅ | Written — RMSE=$42,564, R²=0.453, max_depth=5, 27 leaf nodes |
 
 ---
 
@@ -32,8 +32,8 @@
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/api/schemas/salary.py` | ✅ | PredictionRequest (8 fields, validated), PredictionResponse, ErrorResponse |
-| `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict, GET /api/v1/health; BackgroundTask for DB insert |
+| `src/api/schemas/salary.py` | ✅ | PredictionRequest (8 fields, validated), PredictionResponse (point + range), ErrorResponse |
+| `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict returns point_estimate + salary_range_low/high; BackgroundTask for DB insert |
 | `src/api/main.py` | ✅ | Lifespan (warms model singleton), CORS, global 500 handler, logging |
 
 ### Sample `/predict` Request Body
@@ -63,6 +63,44 @@
 | `is_us_company` | int | 0 = Non-US company · 1 = US company |
 
 > The body above represents a **Senior Data Scientist**, full-time, fully remote, **US-based medium company, North America**.
+
+### Sample `/predict` Response Body
+
+```json
+{
+  "predicted_salary": 125000.0,
+  "salary_range_low": 110000.0,
+  "salary_range_high": 140000.0,
+  "currency": "USD",
+  "model_version": "20260407_172358",
+  "prediction_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `predicted_salary` | The Decision Tree's point prediction — mean salary of the leaf node |
+| `salary_range_low` | Q25 of actual training salaries in the same leaf node (peer group lower bound) |
+| `salary_range_high` | Q75 of actual training salaries in the same leaf node (peer group upper bound) |
+| `currency` | Always `"USD"` |
+| `model_version` | Timestamp of the artifact loaded at startup |
+| `prediction_id` | UUID generated per request, used to link to the Supabase record |
+
+### How the Salary Range Works
+
+A Decision Tree routes each input down to a **leaf node**. Every leaf groups training samples with the same decision path — effectively a peer group. At training time:
+
+1. Each training sample is routed to its leaf via `DecisionTreeRegressor.apply()`.
+2. The **Q25 and Q75** of `salary_in_usd` within each leaf are computed and stored in a `leaf_ranges` dict.
+3. The pipeline and `leaf_ranges` are bundled as `{"pipeline": ..., "leaf_ranges": ...}` and saved together in the `.joblib` artifact.
+
+At inference time:
+
+1. The input is run through the pipeline to get the point estimate.
+2. The same input is routed to its leaf via `apply()`.
+3. The pre-computed Q25–Q75 for that leaf is returned alongside the point estimate.
+
+With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (fewer splits) produce wider, more conservative ranges; narrower leaves produce tighter ranges.
 
 ---
 
@@ -113,8 +151,8 @@
 | `tests/test_data/test_ingestion.py` | ⬜ | load_raw() with dirty fixture |
 | `tests/test_data/test_cleaning.py` | ✅ | 12 tests — leakage drops, IQR cap, no-mutation, idempotency |
 | `tests/test_data/test_engineering.py` | ✅ | 35 tests — job_family (11 titles), location_region (8 countries), ordinal encoding, build_features |
-| `tests/test_models/test_train.py` | ✅ | 10 tests — pipeline shape, predict output, error on missing cols, save/load roundtrip |
-| `tests/test_api/test_prediction.py` | ✅ | 14 tests — happy path, 4× 422 validation, 2× 500 safe message, health check |
+| `tests/test_models/test_train.py` | ✅ | 14 tests — pipeline shape, leaf ranges (coverage, Q25≤Q75), save/load roundtrip with range preservation |
+| `tests/test_api/test_prediction.py` | ✅ | 16 tests — happy path, range fields, 4× 422 validation, 2× 500 safe message, health check |
 | `tests/test_llm/test_narrative.py` | ⬜ | Mocked Ollama client, parse_narrative() |
 
 ---
@@ -141,3 +179,6 @@
 | `company_location` encoding | map → `location_region` (4 regions) + `is_us_company` | Geography matters for salary; 80+ codes too sparse individually |
 | Scaler | `RobustScaler` | Salary data has outliers; RobustScaler is IQR-based, more stable than StandardScaler |
 | Model | Decision Tree Regressor | Project requirement; tree-based models handle our ordinal/label-encoded features well without scaling |
+| Salary output | Point estimate + Q25–Q75 leaf range | A single prediction number is misleading; ranges reflect real variation among comparable training samples |
+| Range method | Decision Tree leaf node IQR | Each leaf groups samples with the same decision path — their Q25/Q75 is the most honest range; no extra model needed |
+| Leaf count | 27 (max_depth=5, best from GridSearchCV) | Depth controls range width — deeper = tighter but noisier; 5 balances interpretability and specificity |
