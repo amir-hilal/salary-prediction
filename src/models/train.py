@@ -54,6 +54,10 @@ def train(
 
     pipeline = _build_pipeline(random_state=settings.random_state)
 
+
+    # GridSearchCV is not a Decision Tree (DT). It is a hyperparameter optimization 
+    # tool used to find the best settings for many different types of machine learning 
+    # models, including Decision Trees.
     search = GridSearchCV(
         estimator=pipeline,
         param_grid=_param_grid(),
@@ -93,3 +97,43 @@ def load_pipeline(path: Path) -> Pipeline:
     pipeline: Pipeline = joblib.load(path)
     logger.info("load_pipeline | loaded from %s", path)
     return pipeline
+
+
+if __name__ == "__main__":
+    import logging as _logging
+
+    from src.data.cleaning import clean
+    from src.data.ingestion import load_raw
+    from src.data.preprocessing import split_and_scale
+    from src.features.engineering import build_features
+    from src.models.evaluate import evaluate
+
+    _logging.basicConfig(level=_logging.INFO, format="%(levelname)s | %(name)s | %(message)s")
+
+    print("── Step 1: Load raw data")
+    df = load_raw(settings.data_raw_path)
+
+    print("── Step 2: Clean")
+    df = clean(df, iqr_cap_factor=settings.iqr_cap_factor)
+
+    print("── Step 3: Feature engineering")
+    df = build_features(df)
+
+    print("── Step 4: Train/test split")
+    split, _ = split_and_scale(df, test_size=settings.test_size, random_state=settings.random_state)
+
+    print("── Step 5: Train (GridSearchCV — this may take a minute)")
+    pipeline, best_params = train(split.X_train, split.y_train)
+
+    print("── Step 6: Save artifact")
+    artifact_path = save_pipeline(pipeline, settings.models_artifacts_path)
+
+    print("── Step 7: Evaluate on test set")
+    metrics = evaluate(pipeline, split.X_test, split.y_test, artifact_path, best_params)
+
+    print("\n✅ Training complete")
+    print(f"   RMSE : ${metrics['rmse']:,.0f}")
+    print(f"   MAE  : ${metrics['mae']:,.0f}")
+    print(f"   R²   : {metrics['r2']:.3f}")
+    print(f"   MAPE : {metrics['mape']:.1f}%")
+    print(f"   Best params: {best_params}")
