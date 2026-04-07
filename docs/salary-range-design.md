@@ -17,9 +17,14 @@ estimate.
 **What the response looks like:**
 ```json
 {
-  "predicted_salary": 125000,
-  "salary_range_low":  110000,
-  "salary_range_high": 140000
+  "salary": {
+    "mean": 125000,
+    "low":  110000,
+    "high": 140000,
+    "currency": "USD"
+  },
+  "model_version": "...",
+  "prediction_id": "..."
 }
 ```
 

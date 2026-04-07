@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
-from src.api.schemas.salary import ErrorResponse, PredictionRequest, PredictionResponse
+from src.api.schemas.salary import ErrorResponse, PredictionRequest, PredictionResponse, SalaryDetail
 from src.models.predict import predict
 
 logger = logging.getLogger(__name__)
@@ -84,10 +84,12 @@ async def predict_salary(
     )
 
     return PredictionResponse(
-        predicted_salary=result.point_estimate,
-        salary_range_low=result.range_low,
-        salary_range_high=result.range_high,
-        currency="USD",
+        salary=SalaryDetail(
+            mean=result.point_estimate,
+            low=result.range_low,
+            high=result.range_high,
+            currency="USD",
+        ),
         model_version=model_version,
         prediction_id=prediction_id,
     )

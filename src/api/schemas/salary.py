@@ -62,24 +62,30 @@ class PredictionRequest(BaseModel):
     )
 
 
+class SalaryDetail(BaseModel):
+    mean: float
+    low: float
+    high: float
+    currency: str
+
+
 class PredictionResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "predicted_salary": 125000.0,
-                "salary_range_low": 110000.0,
-                "salary_range_high": 140000.0,
-                "currency": "USD",
+                "salary": {
+                    "mean": 125000.0,
+                    "low": 110000.0,
+                    "high": 140000.0,
+                    "currency": "USD",
+                },
                 "model_version": "20260407_142809",
                 "prediction_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             }
         }
     )
 
-    predicted_salary: float
-    salary_range_low: float
-    salary_range_high: float
-    currency: str
+    salary: SalaryDetail
     model_version: str
     prediction_id: str
 

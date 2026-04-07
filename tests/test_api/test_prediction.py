@@ -46,26 +46,26 @@ async def test_predict_returns_200(client, mocker) -> None:
 async def test_predict_response_contains_salary(client, mocker) -> None:
     mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
-    assert body["predicted_salary"] == 125_000.0
+    assert body["salary"]["mean"] == 125_000.0
 
 
 async def test_predict_response_contains_range(client, mocker) -> None:
     mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
-    assert body["salary_range_low"] == 110_000.0
-    assert body["salary_range_high"] == 140_000.0
+    assert body["salary"]["low"] == 110_000.0
+    assert body["salary"]["high"] == 140_000.0
 
 
 async def test_predict_response_range_low_le_high(client, mocker) -> None:
     mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
-    assert body["salary_range_low"] <= body["salary_range_high"]
+    assert body["salary"]["low"] <= body["salary"]["high"]
 
 
 async def test_predict_response_currency_is_usd(client, mocker) -> None:
     mocker.patch("src.api.routes.prediction.predict", return_value=_MOCK_RESULT)
     body = (await client.post("/api/v1/predict", json=VALID_PAYLOAD)).json()
-    assert body["currency"] == "USD"
+    assert body["salary"]["currency"] == "USD"
 
 
 async def test_predict_response_has_prediction_id(client, mocker) -> None:

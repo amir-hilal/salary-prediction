@@ -68,10 +68,12 @@
 
 ```json
 {
-  "predicted_salary": 125000.0,
-  "salary_range_low": 110000.0,
-  "salary_range_high": 140000.0,
-  "currency": "USD",
+  "salary": {
+    "mean": 125000.0,
+    "low":  110000.0,
+    "high": 140000.0,
+    "currency": "USD"
+  },
   "model_version": "20260407_172358",
   "prediction_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
@@ -79,10 +81,10 @@
 
 | Field | Meaning |
 |-------|---------|
-| `predicted_salary` | The Decision Tree's point prediction — mean salary of the leaf node |
-| `salary_range_low` | Q25 of actual training salaries in the same leaf node (peer group lower bound) |
-| `salary_range_high` | Q75 of actual training salaries in the same leaf node (peer group upper bound) |
-| `currency` | Always `"USD"` |
+| `salary.mean` | The Decision Tree's point prediction — mean salary of the leaf node |
+| `salary.low` | Q25 of actual training salaries in the same leaf node (peer group lower bound) |
+| `salary.high` | Q75 of actual training salaries in the same leaf node (peer group upper bound) |
+| `salary.currency` | Always `"USD"` |
 | `model_version` | Timestamp of the artifact loaded at startup |
 | `prediction_id` | UUID generated per request, used to link to the Supabase record |
 
