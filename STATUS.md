@@ -21,10 +21,10 @@
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/models/train.py` | ⬜ | sklearn Pipeline, GridSearchCV / RandomizedSearchCV |
-| `src/models/evaluate.py` | ⬜ | RMSE, MAE, R², MAPE; residual plot; JSON eval report |
-| `src/models/predict.py` | ⬜ | predict(features) singleton; reads registry/latest.json |
-| `models/registry/latest.json` | ⬜ | Written by evaluate.py after training |
+| `src/models/train.py` | ✅ | Decision Tree pipeline, GridSearchCV over max_depth / min_samples_split / min_samples_leaf |
+| `src/models/evaluate.py` | ✅ | RMSE, MAE, R², MAPE; residual + predicted-vs-actual plots; registry entry with RMSE regression guard |
+| `src/models/predict.py` | ✅ | predict(features) singleton loaded from registry/latest.json |
+| `models/registry/latest.json` | ⬜ | Written after first training run |
 
 ---
 
