@@ -24,7 +24,7 @@
 | `src/models/train.py` | ✅ | Decision Tree pipeline, GridSearchCV over max_depth / min_samples_split / min_samples_leaf |
 | `src/models/evaluate.py` | ✅ | RMSE, MAE, R², MAPE; residual + predicted-vs-actual plots; registry entry with RMSE regression guard |
 | `src/models/predict.py` | ✅ | predict(features) singleton loaded from registry/latest.json |
-| `models/registry/latest.json` | ⬜ | Written after first training run |
+| `models/registry/latest.json` | ✅ | Written — RMSE=$42,564, R²=0.453, max_depth=5 |
 
 ---
 
@@ -32,9 +32,9 @@
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/api/schemas/salary.py` | ⬜ | PredictionRequest, PredictionResponse, ErrorResponse |
-| `src/api/routes/prediction.py` | ⬜ | POST /predict, GET /health |
-| `src/api/main.py` | ⬜ | App setup, lifespan, CORS, logging |
+| `src/api/schemas/salary.py` | ✅ | PredictionRequest (8 fields, validated), PredictionResponse, ErrorResponse |
+| `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict, GET /api/v1/health; BackgroundTask for DB insert |
+| `src/api/main.py` | ✅ | Lifespan (warms model singleton), CORS, global 500 handler, logging |
 
 ---
 
