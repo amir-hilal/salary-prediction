@@ -252,7 +252,7 @@ See [.env.example](.env.example) for the full list. Key variables:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| ML framework | scikit-learn | Broad algorithm support, fast iteration |
+| ML framework | scikit-learn (`DecisionTreeRegressor`) | Project requirement; handles ordinal/label-encoded features well, no scaling needed |
 | API framework | FastAPI | Async, auto-docs, Pydantic integration |
 | LLM runtime | Ollama (local) | No cloud cost, privacy, easy model swap |
 | Database | Supabase | Postgres + realtime + REST out of the box |

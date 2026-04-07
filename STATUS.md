@@ -112,4 +112,4 @@
 | `job_title` encoding | keyword → `job_family` (6 groups) | High-cardinality nominal; grouping by function reduces sparsity |
 | `company_location` encoding | map → `location_region` (4 regions) + `is_us_company` | Geography matters for salary; 80+ codes too sparse individually |
 | Scaler | `RobustScaler` | Salary data has outliers; RobustScaler is IQR-based, more stable than StandardScaler |
-| Model (TBD) | Tree-based (Random Forest / Gradient Boosting) | All Pearson correlations < 0.35 — non-linear problem |
+| Model | Decision Tree Regressor | Project requirement; tree-based models handle our ordinal/label-encoded features well without scaling |
