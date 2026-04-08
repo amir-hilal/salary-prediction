@@ -23,5 +23,10 @@ class Settings(BaseSettings):
     dt_min_samples_leaf_options: list[int] = [1, 2, 4, 8]
     dt_cv_folds: int = 5
 
+    # Ollama
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3"
+    ollama_timeout: int = 120
+
 
 settings = Settings()
