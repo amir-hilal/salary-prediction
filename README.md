@@ -65,7 +65,7 @@ Kaggle Dataset
 - Deployed as a containerized service
 
 ### 4. LLM Narrative Layer (`src/llm/`)
-- Calls a local **Ollama** model (e.g. `llama3`, `mistral`)
+- Calls a local **Ollama** model (e.g. `phi4-mini`, `llama3`)
 - Acts as a **data analyst**: reads prediction context and writes a human-readable narrative with insights
 - Generates at least one visualization (salary distribution, feature importance, regional breakdown)
 - Output: markdown narrative + chart spec/image
@@ -243,7 +243,7 @@ See [.env.example](.env.example) for the full list. Key variables:
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `OLLAMA_BASE_URL` | Ollama server address (default: `http://localhost:11434`) |
-| `OLLAMA_MODEL` | Model name (e.g. `llama3`, `mistral`) |
+| `OLLAMA_MODEL` | Model name (e.g. `phi4-mini`, `llama3`) |
 | `API_BASE_URL` | FastAPI service URL (for dashboard to call) |
 
 ---
