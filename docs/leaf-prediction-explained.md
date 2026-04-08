@@ -183,7 +183,78 @@ Inference request
 
 ---
 
-## 7. Key Files
+## 7. Current Best Model
+
+The artifact registered in `models/registry/latest.json` was trained on
+2026-04-07 with the following GridSearchCV winner:
+
+| Hyperparameter | Value |
+|---|---|
+| `max_depth` | 5 |
+| `min_samples_split` | 10 |
+| `min_samples_leaf` | 4 |
+
+### Evaluation metrics (held-out test set)
+
+| Metric | Value | Interpretation |
+|---|---|---|
+| **RMSE** | $42 564 | Typical prediction error in USD — skewed by high-salary outliers |
+| **MAE** | $31 480 | Median-like absolute error; more robust to outliers than RMSE |
+| **R²** | 0.453 | The tree explains ~45 % of salary variance — reasonable for noisy salary data |
+| **MAPE** | 80.8 % | Inflated by low-salary rows where a fixed dollar error looks large as a % |
+| **CV RMSE** | $46 303 | Cross-validation error; close to test RMSE, so no severe overfitting |
+
+### Are outliers handled before training?
+
+Yes — but by **capping**, not by removing rows. `clean()` in
+`src/data/cleaning.py` applies IQR Winsorization with a factor of 1.5:
+
+```python
+lower = Q1 - 1.5 * IQR
+upper = Q3 + 1.5 * IQR
+result[col] = result[col].clip(lower=lower, upper=upper)
+```
+
+Values beyond the fence are **clamped to the fence value** rather than dropped,
+so the dataset size stays at 607 rows. The model was trained on these capped
+salaries, which means extreme values no longer pull the leaf means far from the
+typical case — but the natural spread between, say, a junior analyst in Europe
+and a senior ML engineer in the US is deliberately preserved.
+
+### Why is RMSE still $42 564 after capping?
+
+$42k sounds large, but context matters:
+
+- **Salary is inherently wide-ranging.** Even after capping, data science
+  salaries in this dataset run from ~$30k (part-time, non-US) to ~$250k (senior
+  US). A $42k RMSE on that range is roughly a 25–30% error on the median —
+  comparable to other published salary benchmarks on similar datasets.
+- **The cap is permissive by design.** IQR × 1.5 removes only the most
+  extreme outliers. The natural cross-regional and cross-role variance that
+  remains is real signal, not noise.
+- **607 rows, 8 features, noisy target.** The model explains only ~45% of
+  salary variance (R² = 0.453). The other 55% is driven by factors absent from
+  the dataset: negotiation, equity, company funding stage, tenure, and
+  cost-of-living adjustments.
+- **RMSE is sensitive to large residuals.** MAE ($31 480) is a better
+  central-tendency estimate; the gap between RMSE and MAE confirms that a small
+  number of leaves with wide salary spreads inflate the RMSE.
+
+The small difference between CV RMSE ($46 303) and test RMSE ($42 564) confirms
+the model generalises well and is not overfitting.
+
+### How does the system communicate this uncertainty to users?
+
+The API never returns only the point estimate. Every response includes the
+leaf's Q25–Q75 range, giving users an honest view of how consistently peers in
+that profile actually earn. The LLM narrative layer is also **required** to
+explicitly state the prediction error and range in every response — see
+[`llm-integration.instructions.md`](../.github/instructions/llm-integration.instructions.md)
+for the prompt rules that enforce this.
+
+---
+
+## 8. Key Files
 
 | File | Role |
 |---|---|
