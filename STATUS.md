@@ -110,8 +110,9 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/llm/ollama_client.py` | ⬜ | httpx async client, generate(), OllamaError |
-| `src/llm/narrative.py` | ⬜ | build_prompt(), parse_narrative(), NarrativeResult, ChartSpec |
+| `src/llm/ollama_client.py` | ✅ | httpx async client, generate(), OllamaError; reads ollama_base_url/model/timeout from settings |
+| `src/llm/narrative.py` | ✅ | build_prompt() injects point_estimate/range/MAE; parse_narrative() → NarrativeResult + ChartSpec; generate_narrative() entry point |
+| `phi4-mini` model | 🚧 | `ollama pull phi4-mini` in progress — default model in settings.py and .env.example |
 
 ---
 
@@ -127,9 +128,9 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `deployment/scripts/setup_supabase.sql` | ⬜ | predictions + narratives tables, RLS policies, indexes |
-| `src/database/client.py` | ⬜ | Supabase client singleton |
-| `src/database/crud.py` | ⬜ | insert_prediction(), insert_narrative(), get_recent_predictions(), get_narrative_for_prediction() |
+| `deployment/scripts/setup_supabase.sql` | ✅ | predictions + narratives tables, RLS policies (anon read / service insert), realtime publication, indexes |
+| `src/database/client.py` | ✅ | Lazy singleton via get_client(); uses service-role key from settings |
+| `src/database/crud.py` | ✅ | insert_prediction(), insert_narrative(), get_recent_predictions(), get_narrative_for_prediction(); PredictionRecord + NarrativeRecord Pydantic models |
 
 ---
 

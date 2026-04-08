@@ -11,7 +11,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["prediction"])
 
 
-def _persist_prediction(prediction_id: str, features: dict, predicted_salary: float) -> None:
+def _persist_prediction(
+    prediction_id: str,
+    features: dict,
+    predicted_salary: float,
+    salary_range_low: float,
+    salary_range_high: float,
+    model_version: str,
+) -> None:
     """Write the prediction record to Supabase (runs as a background task)."""
     try:
         from src.database.crud import insert_prediction  # noqa: PLC0415
@@ -20,6 +27,9 @@ def _persist_prediction(prediction_id: str, features: dict, predicted_salary: fl
             prediction_id=prediction_id,
             features=features,
             predicted_salary=predicted_salary,
+            salary_range_low=salary_range_low,
+            salary_range_high=salary_range_high,
+            model_version=model_version,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -75,7 +85,15 @@ async def predict_salary(
 
     model_version: str = getattr(request.app.state, "model_version", "unknown")
 
-    background_tasks.add_task(_persist_prediction, prediction_id, features, result.point_estimate)
+    background_tasks.add_task(
+        _persist_prediction,
+        prediction_id,
+        features,
+        result.point_estimate,
+        result.range_low,
+        result.range_high,
+        model_version,
+    )
 
     logger.info(
         "predict_salary | prediction_id=%s | predicted_salary=%.2f",

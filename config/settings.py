@@ -28,5 +28,10 @@ class Settings(BaseSettings):
     ollama_model: str = "phi4-mini"
     ollama_timeout: int = 120
 
+    # Supabase
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""
+
 
 settings = Settings()
