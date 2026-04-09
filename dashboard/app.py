@@ -125,7 +125,7 @@ def overview_page() -> None:
 }
 </style>
 <div class="cta-wrap">
-  <a href="/Reveal_Your_True_Salary" target="_self">Reveal Your True Salary →</a>
+  <a href="/reveal_your_true_salary" target="_self">Reveal Your True Salary →</a>
 </div>
 """,
         unsafe_allow_html=True,

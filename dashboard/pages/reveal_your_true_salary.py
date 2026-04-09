@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _EXP_LABELS = {0: "Entry-level", 1: "Mid-level", 2: "Senior", 3: "Executive"}
 _EMP_LABELS = {0: "Part-time", 1: "Freelance", 2: "Contract", 3: "Full-time"}
 _REMOTE_LABELS = {0: "On-site", 50: "Hybrid", 100: "Remote"}
-_SIZE_LABELS = {0: "Small", 1: "Medium", 2: "Large"}
+_SIZE_LABELS = {0: "Small (<50)", 1: "Medium (50–250)", 2: "Large (250+)"}
 _FAMILY_LABELS = {
     0: "Other", 1: "Analytics", 2: "Data Science",
     3: "Data Engineering", 4: "ML / AI", 5: "Leadership",
@@ -471,7 +471,7 @@ elif st.session_state.step == 2:
         key="w_job_family",
     )
     st.session_state.ss_remote_ratio = st.selectbox(
-        "Remote ratio",
+        "Work arrangement",
         options=[0, 50, 100],
         format_func=lambda x: _REMOTE_LABELS[x],
         index=None if st.session_state.ss_remote_ratio is None else [0, 50, 100].index(st.session_state.ss_remote_ratio),
