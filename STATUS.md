@@ -192,15 +192,3 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 ### Model
 - R² = 0.453 — the model only explains ~45% of salary variance. The remaining 55% is driven by factors outside the dataset (negotiation skill, company brand, niche specialisations, stock/bonus, etc.). This is an inherent limitation of the feature set, not a code bug.
-
-### Dashboard — Insights Tab
-The Insights page currently shows only three things: a narrative list, a single filtered salary histogram, and a static feature-importance bar chart. The raw dataset and prediction history contain far more signal. The following EDA views should be added:
-
-- **Salary by experience level** — box plot or grouped bar chart showing distribution across Entry-level / Mid-level / Senior / Executive. This is the single strongest predictor (35% importance) and deserves a dedicated visual.
-- **Salary by region** — grouped bar or violin plot comparing North America, Europe, Asia Pacific, and Rest of World. Should highlight the US premium (overlay `is_us_company` split within the North America group).
-- **Salary by job family** — horizontal bar chart ranking the six job families (Analytics, Data Science, Data Engineering, ML/AI, Leadership, Other) by median salary.
-- **Remote ratio vs salary** — strip or box plot showing how on-site / hybrid / remote affects compensation, optionally faceted by experience level.
-- **Year-over-year salary trend** — line chart of median salary per `work_year` (2020–2022 from training data, plus predicted salaries for later years) with a clear annotation where training data ends and extrapolation begins.
-- **Company size vs salary** — small / medium / large comparison, ideally as a stacked density or box plot.
-- **Cross-tab heatmap** — experience level × region grid coloured by median salary. Gives a quick "where's the money" overview in one glance.
-- **Prediction volume over time** — time-series of prediction count per day/week from Supabase, showing usage trends and helping spot data freshness issues.

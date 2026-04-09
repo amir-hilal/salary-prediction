@@ -197,6 +197,7 @@ def feature_importance_bar(
     return _apply_defaults(fig, title, x_label, y_label)
 
 
+
 # ---------------------------------------------------------------------------
 # from_chart_spec  — dispatch helper used by the dashboard
 # ---------------------------------------------------------------------------

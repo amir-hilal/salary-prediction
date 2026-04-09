@@ -2,6 +2,7 @@
 
 import logging
 
+import pandas as pd
 import streamlit as st
 from plotly.graph_objects import Figure
 
@@ -13,6 +14,16 @@ from src.visualizations.charts import (
     from_chart_spec,
     salary_histogram,
 )
+from src.visualizations.eda import (
+    experience_region_heatmap,
+    prediction_volume,
+    salary_by_company_size,
+    salary_by_experience,
+    salary_by_job_family,
+    salary_by_region,
+    salary_by_remote_ratio,
+    salary_trend,
+)
 
 
 def render_salary_histogram(
@@ -23,7 +34,7 @@ def render_salary_histogram(
 ) -> None:
     """Render a salary histogram inside the current Streamlit column/container."""
     fig: Figure = salary_histogram(records, spec=spec, point_estimate=point_estimate)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_histogram")
 
 
 def render_feature_importance(
@@ -33,7 +44,7 @@ def render_feature_importance(
 ) -> None:
     """Render a horizontal feature importance bar chart."""
     fig: Figure = feature_importance_bar(importances, spec=spec)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="chart_feature_importance")
 
 
 def render_chart_from_spec(
@@ -51,7 +62,60 @@ def render_chart_from_spec(
             point_estimate=point_estimate,
             importances=importances,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="chart_from_spec")
     except Exception as exc:
         logger.exception("render_chart_from_spec failed")
         st.error(f"Could not render chart: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# EDA chart wrappers — static training data
+# ---------------------------------------------------------------------------
+
+def render_salary_by_experience(df: pd.DataFrame) -> None:
+    """Render salary distribution by experience level."""
+    fig: Figure = salary_by_experience(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_by_experience")
+
+
+def render_salary_by_region(df: pd.DataFrame) -> None:
+    """Render salary distribution by region."""
+    fig: Figure = salary_by_region(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_by_region")
+
+
+def render_salary_by_job_family(df: pd.DataFrame) -> None:
+    """Render median salary by job family."""
+    fig: Figure = salary_by_job_family(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_by_job_family")
+
+
+def render_salary_by_remote_ratio(df: pd.DataFrame) -> None:
+    """Render salary distribution by remote work arrangement."""
+    fig: Figure = salary_by_remote_ratio(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_by_remote_ratio")
+
+
+def render_salary_trend(df: pd.DataFrame) -> None:
+    """Render median salary trend by year."""
+    fig: Figure = salary_trend(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_trend")
+
+
+def render_salary_by_company_size(df: pd.DataFrame) -> None:
+    """Render salary distribution by company size."""
+    fig: Figure = salary_by_company_size(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_by_company_size")
+
+
+def render_experience_region_heatmap(df: pd.DataFrame) -> None:
+    """Render median salary heatmap by experience level × region."""
+    fig: Figure = experience_region_heatmap(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_experience_region_heatmap")
+
+
+def render_prediction_volume(records: list[dict]) -> None:
+    """Render prediction count per calendar day."""
+    fig: Figure = prediction_volume(records)
+    st.plotly_chart(fig, use_container_width=True, key="chart_prediction_volume")
+
