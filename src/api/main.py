@@ -39,18 +39,32 @@ def _read_model_version() -> str:
     return "unknown"
 
 
+def _read_model_mae() -> float:
+    """Return the MAE of the currently registered model artifact."""
+    registry_path = settings.models_registry_path / "latest.json"
+    if registry_path.exists():
+        entry = json.loads(registry_path.read_text())
+        return float(entry.get("metrics", {}).get("mae", 0.0))
+    return 0.0
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _configure_logging()
 
     model_version = _read_model_version()
     app.state.model_version = model_version
+    app.state.model_mae = _read_model_mae()
 
     # Eagerly warm the model singleton so the first request has no cold-start I/O.
     from src.models.predict import _get_pipeline  # noqa: PLC0415
 
     _get_pipeline()
-    logger.info("lifespan | startup complete | model_version=%s", model_version)
+    logger.info(
+        "lifespan | startup complete | model_version=%s | model_mae=%.2f",
+        model_version,
+        app.state.model_mae,
+    )
 
     yield
 

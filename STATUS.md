@@ -112,7 +112,7 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 |------|--------|-------|
 | `src/llm/ollama_client.py` | ✅ | httpx async client, generate(), OllamaError; reads ollama_base_url/model/timeout from settings |
 | `src/llm/narrative.py` | ✅ | build_prompt() injects point_estimate/range/MAE; parse_narrative() → NarrativeResult + ChartSpec; generate_narrative() entry point |
-| `phi4-mini` model | 🚧 | `ollama pull phi4-mini` in progress — default model in settings.py and .env.example |
+| `phi4-mini` model | ✅ | Pulled and ready — 2.5 GB, default model in settings.py and .env.example |
 
 ---
 

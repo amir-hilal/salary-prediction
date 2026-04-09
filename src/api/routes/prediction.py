@@ -40,6 +40,37 @@ async def _persist_prediction(
         )
 
 
+async def _generate_and_persist_narrative(
+    prediction_id: str,
+    prediction_context: dict,
+) -> None:
+    """Call the LLM and write the narrative to Supabase (runs as a background task).
+
+    Scheduled after _persist_prediction so the FK constraint is satisfied.
+    Failures are logged and swallowed — a missing narrative never blocks the response.
+    """
+    try:
+        from src.database.crud import insert_narrative  # noqa: PLC0415
+        from src.llm.narrative import generate_narrative  # noqa: PLC0415
+
+        narrative, raw = await generate_narrative(prediction_context)
+        await insert_narrative(
+            prediction_id=prediction_id,
+            narrative=narrative,
+            raw_response=raw,
+        )
+        logger.info(
+            "generate_narrative | persisted | prediction_id=%s",
+            prediction_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_narrative | failed | prediction_id=%s | error=%s",
+            prediction_id,
+            exc,
+        )
+
+
 @router.post(
     "/predict",
     response_model=PredictionResponse,
@@ -85,7 +116,9 @@ async def predict_salary(
         ) from exc
 
     model_version: str = getattr(request.app.state, "model_version", "unknown")
+    model_mae: float = getattr(request.app.state, "model_mae", 0.0)
 
+    # Background task 1: persist the prediction row (FK anchor for the narrative).
     background_tasks.add_task(
         _persist_prediction,
         prediction_id,
@@ -94,6 +127,22 @@ async def predict_salary(
         result.range_low,
         result.range_high,
         model_version,
+    )
+
+    # Background task 2: generate the LLM narrative and persist it.
+    # Runs after task 1 because FastAPI executes background tasks sequentially.
+    prediction_context = {
+        "point_estimate": result.point_estimate,
+        "range_low": result.range_low,
+        "range_high": result.range_high,
+        "currency": "USD",
+        "model_mae": model_mae,
+        "features": features,
+    }
+    background_tasks.add_task(
+        _generate_and_persist_narrative,
+        prediction_id,
+        prediction_context,
     )
 
     logger.info(

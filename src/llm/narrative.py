@@ -231,7 +231,7 @@ def parse_narrative(raw: str) -> NarrativeResult:
 # Main entry point
 # ---------------------------------------------------------------------------
 
-async def generate_narrative(prediction_context: dict) -> NarrativeResult:
+async def generate_narrative(prediction_context: dict) -> tuple[NarrativeResult, str]:
     """Build the prompt, call Ollama, parse and return the structured narrative.
 
     prediction_context must contain:
@@ -242,6 +242,9 @@ async def generate_narrative(prediction_context: dict) -> NarrativeResult:
         model_mae      : float
         features       : dict  (encoded feature dict from the prediction request)
 
+    Returns:
+        A tuple of (NarrativeResult, raw_llm_response_str).
+
     Raises:
         OllamaError: if the Ollama call fails.
     """
@@ -251,4 +254,4 @@ async def generate_narrative(prediction_context: dict) -> NarrativeResult:
         "generate_narrative | response_length=%d",
         len(raw),
     )
-    return parse_narrative(raw)
+    return parse_narrative(raw), raw
