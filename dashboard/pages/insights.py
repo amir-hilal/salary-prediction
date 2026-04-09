@@ -62,10 +62,10 @@ filters: FilterState = render_sidebar_filters()
 # Page header
 # ---------------------------------------------------------------------------
 
-st.title("Narrative Insights")
+st.title("Salary Insights")
 st.caption(
-    "Read AI-generated explanations for past predictions. "
-    "Use the sidebar filters to narrow by date, experience, region, or job family."
+    "Explore salary trends, key drivers, and patterns from the training data. "
+    "The Usage tab shows prediction activity and AI-generated narratives."
 )
 
 # ---------------------------------------------------------------------------
@@ -134,35 +134,9 @@ filtered_records = _apply_filters(all_records, filters)
 # Tabs
 # ---------------------------------------------------------------------------
 
-tab_narratives, tab_drivers, tab_patterns, tab_usage = st.tabs(
-    ["Narratives", "Key Drivers", "Patterns", "Usage"]
+tab_drivers, tab_patterns, tab_usage = st.tabs(
+    ["Key Drivers", "Patterns", "Usage"]
 )
-
-# ---------------------------------------------------------------------------
-# Tab: Narratives
-# ---------------------------------------------------------------------------
-
-with tab_narratives:
-    st.subheader("Recent Narratives")
-
-    if not narratives:
-        st.info("No narratives yet. Make a prediction on the Prediction Explorer page.")
-    else:
-        for narrative in narratives:
-            with st.expander(
-                f"Prediction `{narrative.prediction_id[:8]}…`  —  "
-                f"{narrative.created_at.strftime('%Y-%m-%d %H:%M')}",
-                expanded=False,
-            ):
-                st.markdown(f"**Summary**\n\n{narrative.summary}")
-                st.markdown(f"**Uncertainty**\n\n{narrative.uncertainty}")
-
-                if narrative.insights:
-                    st.markdown("**Key Insights**")
-                    for insight in narrative.insights:
-                        st.markdown(f"- {insight}")
-
-                st.markdown(f"**Recommendation**\n\n{narrative.recommendation}")
 
 # ---------------------------------------------------------------------------
 # Tab: Key Drivers
@@ -227,3 +201,25 @@ with tab_usage:
 
     st.subheader("Prediction Volume Over Time")
     render_prediction_volume(all_records)
+
+    st.divider()
+    st.subheader("Recent Narratives")
+
+    if not narratives:
+        st.info("No narratives yet. Make a prediction on the Prediction Explorer page.")
+    else:
+        for narrative in narratives:
+            with st.expander(
+                f"Prediction `{narrative.prediction_id[:8]}…`  —  "
+                f"{narrative.created_at.strftime('%Y-%m-%d %H:%M')}",
+                expanded=False,
+            ):
+                st.markdown(f"**Summary**\n\n{narrative.summary}")
+                st.markdown(f"**Uncertainty**\n\n{narrative.uncertainty}")
+
+                if narrative.insights:
+                    st.markdown("**Key Insights**")
+                    for insight in narrative.insights:
+                        st.markdown(f"- {insight}")
+
+                st.markdown(f"**Recommendation**\n\n{narrative.recommendation}")
