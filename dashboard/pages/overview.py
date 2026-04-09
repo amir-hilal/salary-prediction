@@ -6,10 +6,15 @@ the most recent 500 predictions.  Auto-refreshes every 30 s.
 
 import time
 
+import pandas as pd
 import streamlit as st
 
 from src.database.crud import get_recent_predictions
-from dashboard.components.charts import render_salary_histogram
+from dashboard.components.charts import (
+    render_salary_histogram,
+    render_salary_density_by_experience,
+    render_salary_stacked_histogram_by_experience,
+)
 
 st.set_page_config(page_title="Salary Landscape", layout="wide")
 
@@ -75,6 +80,50 @@ render_salary_histogram(records)
 
 with st.expander("Raw prediction data", expanded=False):
     st.dataframe(records, use_container_width=True)
+
+# ---------------------------------------------------------------------------
+# Training data density — where the model is most reliable
+# ---------------------------------------------------------------------------
+
+
+@st.cache_data
+def _load_training_df() -> pd.DataFrame:
+    from src.data.cleaning import cap_salary_outliers, drop_leakage_columns
+    from src.data.ingestion import load_raw, load_raw_from_supabase
+    from src.features.engineering import build_features
+
+    from config.settings import settings
+
+    if settings.environment == "production":
+        df = load_raw_from_supabase()
+    else:
+        df = load_raw(settings.data_raw_path)
+
+    df = drop_leakage_columns(df)
+    df = cap_salary_outliers(df)
+    df = build_features(df)
+    return df
+
+
+st.divider()
+st.subheader("Training Data Density")
+st.caption(
+    "The model is most reliable in the $50k–$200k salary band where training data "
+    "is densest — primarily Mid-level and Senior roles."
+)
+
+try:
+    training_df = _load_training_df()
+except Exception as exc:
+    st.error(f"Could not load training data: {exc}")
+    training_df = pd.DataFrame()
+
+if not training_df.empty:
+    col_violin, col_stacked = st.columns(2)
+    with col_violin:
+        render_salary_density_by_experience(training_df)
+    with col_stacked:
+        render_salary_stacked_histogram_by_experience(training_df)
 
 # ---------------------------------------------------------------------------
 # Auto-refresh loop

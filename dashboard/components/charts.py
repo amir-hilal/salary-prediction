@@ -22,6 +22,8 @@ from src.visualizations.eda import (
     salary_by_job_family,
     salary_by_region,
     salary_by_remote_ratio,
+    salary_density_by_experience,
+    salary_stacked_histogram_by_experience,
     salary_trend,
 )
 
@@ -118,4 +120,16 @@ def render_prediction_volume(records: list[dict]) -> None:
     """Render prediction count per calendar day."""
     fig: Figure = prediction_volume(records)
     st.plotly_chart(fig, use_container_width=True, key="chart_prediction_volume")
+
+
+def render_salary_density_by_experience(df: pd.DataFrame) -> None:
+    """Render violin plot of salary density per experience level."""
+    fig: Figure = salary_density_by_experience(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_density_by_experience")
+
+
+def render_salary_stacked_histogram_by_experience(df: pd.DataFrame) -> None:
+    """Render stacked histogram of salary by experience level."""
+    fig: Figure = salary_stacked_histogram_by_experience(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_stacked_histogram")
 

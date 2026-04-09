@@ -277,3 +277,93 @@ def prediction_volume(records: list[dict]) -> Figure:
         )
     )
     return _apply_defaults(fig, "Prediction Volume Over Time", "Date", "Predictions")
+
+
+# ---------------------------------------------------------------------------
+# salary_density_by_experience (violin plot)
+# ---------------------------------------------------------------------------
+
+_VIOLIN_COLORS: list[str] = ["#4878D0", "#EE854A", "#6ACC64", "#D65F5F"]
+
+
+def salary_density_by_experience(df: pd.DataFrame) -> Figure:
+    """Violin plot showing salary distribution shape and density per experience level.
+
+    Width encodes data density; the wider the violin at a salary value, the more
+    records cluster there.  Sample counts are annotated above each violin.
+    """
+    if df.empty:
+        logger.warning("salary_density_by_experience | empty DataFrame")
+        return go.Figure()
+
+    plot_df = df.assign(experience_label=df["experience_level"].map(_EXP_LABELS))
+
+    fig = go.Figure()
+    for i, level in enumerate(_EXP_ORDER):
+        subset = plot_df[plot_df["experience_label"] == level]["salary_in_usd"]
+        if subset.empty:
+            continue
+        fig.add_trace(
+            go.Violin(
+                y=subset,
+                name=level,
+                box_visible=False,
+                meanline_visible=True,
+                fillcolor=_VIOLIN_COLORS[i],
+                opacity=0.7,
+                line_color=_VIOLIN_COLORS[i],
+            )
+        )
+        fig.add_annotation(
+            x=level,
+            y=subset.max() * 1.08,
+            text=f"n={len(subset)}",
+            showarrow=False,
+            font={"size": 12, "color": "black"},
+        )
+
+    fig.update_layout(showlegend=False)
+    return _apply_defaults(
+        fig,
+        "Salary Distribution & Data Density by Experience Level",
+        "Experience Level",
+        "Salary (USD)",
+    )
+
+
+# ---------------------------------------------------------------------------
+# salary_stacked_histogram_by_experience
+# ---------------------------------------------------------------------------
+
+def salary_stacked_histogram_by_experience(df: pd.DataFrame) -> Figure:
+    """Stacked histogram of salary coloured by experience level.
+
+    Each bar segment shows how many records from a given experience level
+    fall into that salary bin, making it easy to see which levels populate
+    the dense mid-range vs. the sparse tails.
+    """
+    if df.empty:
+        logger.warning("salary_stacked_histogram_by_experience | empty DataFrame")
+        return go.Figure()
+
+    plot_df = df.assign(experience_label=df["experience_level"].map(_EXP_LABELS))
+
+    fig = px.histogram(
+        plot_df,
+        x="salary_in_usd",
+        color="experience_label",
+        nbins=25,
+        color_discrete_sequence=_VIOLIN_COLORS,
+        category_orders={"experience_label": _EXP_ORDER},
+        labels={
+            "salary_in_usd": "Salary (USD)",
+            "experience_label": "Experience Level",
+        },
+    )
+    fig.update_layout(barmode="stack")
+    return _apply_defaults(
+        fig,
+        "Salary Histogram by Experience Level",
+        "Salary (USD)",
+        "Count",
+    )
