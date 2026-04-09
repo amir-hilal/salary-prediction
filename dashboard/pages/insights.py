@@ -1,13 +1,9 @@
 """Page 3 — Narrative & Charts.
 
 Four tabs:
-  - Narratives: recent AI-generated narratives with expandable detail.
   - Key Drivers: salary by experience, region, and job family.
   - Patterns: salary by remote ratio, company size, year trend, and heatmap.
   - Usage: prediction volume over time plus usage metrics.
-
-The sidebar filters apply to the narrative list only; all EDA charts use the
-full training dataset.
 """
 
 import logging

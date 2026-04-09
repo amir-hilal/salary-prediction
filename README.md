@@ -291,9 +291,8 @@ The prediction is persisted **synchronously** before the API returns, so the nar
 
 - `app.py` — Streamlit entry point and Overview page (hero, salary landscape metrics, histogram, auto-refresh). Uses `st.navigation` with `st.Page` for explicit sidebar labels and page ordering
 - `pages/reveal_your_true_salary.py` — input form → API call → salary metrics → SSE token-by-token narrative streaming → structured display + chart
-- `pages/insights.py` — narrative list with sidebar filters, comparative EDA charts, training data density section (violin plot + stacked histogram by experience level)
+- `pages/insights.py` — narrative list, comparative EDA charts, training data density section (violin plot + stacked histogram by experience level)
 - `components/charts.py` — Plotly wrappers, `render_chart_from_spec()`, `render_salary_density_by_experience()`, `render_salary_stacked_histogram_by_experience()`
-- `components/filters.py` — `FilterState` Pydantic model, `render_sidebar_filters()`
 
 Sidebar pages: **Overview** · **Reveal Your True Salary** · **Insights**
 

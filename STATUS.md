@@ -140,10 +140,9 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 | File | Status | Notes |
 |------|--------|-------|
 | `dashboard/app.py` | ✅ | Entry point + Overview page (hero, metrics, histogram, auto-refresh). Uses st.navigation for explicit sidebar labels |
-| `dashboard/components/filters.py` | ✅ | FilterState Pydantic model, render_sidebar_filters() |
 | `dashboard/components/charts.py` | ✅ | Plotly wrappers, render_chart_from_spec(), render_salary_density_by_experience(), render_salary_stacked_histogram_by_experience() |
 | `dashboard/pages/reveal_your_true_salary.py` | ✅ | Prediction form → API call → salary metrics + SSE streaming narrative (token-by-token) + structured display + chart |
-| `dashboard/pages/insights.py` | ✅ | Narrative list, sidebar filters, comparative charts, training data density (violin + stacked histogram) |
+| `dashboard/pages/insights.py` | ✅ | Narrative list, comparative charts, training data density (violin + stacked histogram) |
 | `docs/demo-script.md` | ✅ | Non-technical marketing demo script for the dashboard |
 
 ---
