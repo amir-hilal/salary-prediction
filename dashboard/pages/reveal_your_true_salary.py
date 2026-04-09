@@ -17,7 +17,7 @@ from src.llm.narrative import ChartSpec
 
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="Prediction Explorer", layout="wide")
+st.set_page_config(page_title="Reveal Your True Salary", layout="wide")
 
 # ---------------------------------------------------------------------------
 # Label maps (code → human-readable)
@@ -425,8 +425,8 @@ if st.session_state.step == 5:
 if st.session_state.step >= 5:
     st.stop()
 
-st.title("Prediction Explorer")
-st.caption("Answer a few questions and get an AI-explained salary estimate.")
+st.title("Reveal Your True Salary")
+st.caption("Answer a few questions and discover what you should really be earning.")
 
 # Progress bar
 st.progress(st.session_state.step / _TOTAL_STEPS)
@@ -548,7 +548,7 @@ elif st.session_state.step == 4:
 
     c_back, c_predict = st.columns(2)
     c_back.button("← Back", on_click=_go_back)
-    c_predict.button("Predict", type="primary", on_click=_on_predict)
+    c_predict.button("Reveal Your True Salary", type="primary", on_click=_on_predict)
 
 # ---------------------------------------------------------------------------
 # Start-over button (visible on steps 2–4)

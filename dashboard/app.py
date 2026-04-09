@@ -111,7 +111,7 @@ st.markdown(
 }
 </style>
 <div class="cta-wrap">
-  <a href="/predictions" target="_self">Make a Prediction →</a>
+  <a href="/reveal_your_true_salary" target="_self">Reveal Your True Salary →</a>
 </div>
 """,
     unsafe_allow_html=True,
