@@ -154,7 +154,7 @@ if submitted:
     st.session_state.narrative_stream_in_progress = True
     try:
         with httpx.Client(
-            timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0)
+            timeout=httpx.Timeout(60.0, connect=10.0)
         ) as client:
             with client.stream(
                 "GET",
@@ -177,6 +177,16 @@ if submitted:
                     # Unescape newlines that were escaped for SSE transport.
                     accumulated += token.replace("\\n", "\n")
                     narrative_placeholder.markdown(accumulated)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            narrative_placeholder.error(
+                "Prediction was not saved in time. Please try again in a moment."
+            )
+        else:
+            narrative_placeholder.error(
+                f"Narrative stream failed with status {exc.response.status_code}."
+            )
+        stream_error = True
     except httpx.RequestError as exc:
         narrative_placeholder.error(
             f"Could not connect to the narrative stream. Is the API running? ({exc})"

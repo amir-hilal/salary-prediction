@@ -2,7 +2,7 @@ import asyncio
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from src.api.schemas.salary import ErrorResponse, PredictionRequest, PredictionResponse, SalaryDetail
@@ -83,7 +83,6 @@ async def _generate_and_persist_narrative(
 )
 async def predict_salary(
     payload: PredictionRequest,
-    background_tasks: BackgroundTasks,
     request: Request,
 ) -> PredictionResponse:
     """Return the predicted salary in USD for a single candidate profile.
@@ -119,9 +118,9 @@ async def predict_salary(
     model_version: str = getattr(request.app.state, "model_version", "unknown")
     model_mae: float = getattr(request.app.state, "model_mae", 0.0)
 
-    # Background task 1: persist the prediction row (FK anchor for the narrative).
-    background_tasks.add_task(
-        _persist_prediction,
+    # Persist the prediction row synchronously so it exists before the
+    # dashboard opens the narrative SSE stream — no race condition.
+    await _persist_prediction(
         prediction_id,
         features,
         result.point_estimate,
