@@ -87,6 +87,13 @@ def main() -> None:
         "application/octet-stream",
     )
 
+    # Upload the raw training data so Streamlit Cloud can load it.
+    csv_path = settings.data_raw_path
+    if csv_path.exists():
+        _upload(bucket, "ds_salaries.csv", csv_path.read_bytes(), "text/csv")
+    else:
+        logger.warning("raw data not found at %s — skipping CSV upload", csv_path)
+
     logger.info("done — model '%s' (trained %s) is live in Supabase Storage.",
                 entry["name"], entry["timestamp"])
 

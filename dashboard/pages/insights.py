@@ -39,11 +39,16 @@ st.set_page_config(page_title="Narrative Insights", layout="wide")
 @st.cache_data
 def _load_training_df() -> pd.DataFrame:
     from src.data.cleaning import cap_salary_outliers, drop_leakage_columns
-    from src.data.ingestion import load_raw
+    from src.data.ingestion import load_raw, load_raw_from_supabase
     from src.features.engineering import build_features
 
     from config.settings import settings
-    df = load_raw(settings.data_raw_path)
+
+    if settings.data_raw_path.exists():
+        df = load_raw(settings.data_raw_path)
+    else:
+        df = load_raw_from_supabase()
+
     df = drop_leakage_columns(df)
     df = cap_salary_outliers(df)
     df = build_features(df)
