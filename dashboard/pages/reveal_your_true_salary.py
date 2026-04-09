@@ -17,8 +17,6 @@ from src.llm.narrative import ChartSpec
 
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="Reveal Your True Salary", layout="wide")
-
 # ---------------------------------------------------------------------------
 # Label maps (code → human-readable)
 # ---------------------------------------------------------------------------

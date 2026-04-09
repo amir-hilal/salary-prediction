@@ -23,13 +23,13 @@ from dashboard.components.charts import (
     render_salary_by_job_family,
     render_salary_by_region,
     render_salary_by_remote_ratio,
+    render_salary_density_by_experience,
+    render_salary_stacked_histogram_by_experience,
     render_salary_trend,
 )
 from src.database.crud import get_recent_narratives, get_recent_predictions
 
 logger = logging.getLogger(__name__)
-
-st.set_page_config(page_title="Narrative Insights", layout="wide")
 
 # ---------------------------------------------------------------------------
 # Training data loader (cached)
@@ -116,6 +116,18 @@ with tab_drivers:
 
     st.subheader("Median Salary by Job Family")
     render_salary_by_job_family(training_df)
+
+    st.divider()
+    st.subheader("Training Data Density")
+    st.caption(
+        "The model is most reliable in the $50k\u2013$200k salary band where training data "
+        "is densest \u2014 primarily Mid-level and Senior roles."
+    )
+    col_violin, col_stacked = st.columns(2)
+    with col_violin:
+        render_salary_density_by_experience(training_df)
+    with col_stacked:
+        render_salary_stacked_histogram_by_experience(training_df)
 
 # ---------------------------------------------------------------------------
 # Tab: Patterns

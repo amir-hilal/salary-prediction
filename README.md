@@ -216,7 +216,7 @@ The prediction is persisted **synchronously** before the API returns, so the nar
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         Streamlit Dashboard                          │
-│               (Overview · Predictions · Insights)                    │
+│        (Overview · Reveal Your True Salary · Insights)               │
 │                     reads via anon key (RLS)                         │
 └──────────┬────────────────────────┬──────────────────────────────────┘
            │ POST /predict          │ GET /predict/{id}/narrative (SSE)
@@ -284,16 +284,18 @@ The prediction is persisted **synchronously** before the API returns, so the nar
 ### Visualizations (`src/visualizations/`)
 
 - `charts.py` — `salary_histogram()`, `predicted_vs_actual_scatter()`, `feature_importance_bar()`, `from_chart_spec()` dispatcher
+- `eda.py` — `salary_density_by_experience()` (violin plot), `salary_stacked_histogram_by_experience()` (stacked histogram); used by the Insights page and the EDA notebook
 - Used by both the LLM layer (chart spec generation) and the dashboard (rendering)
 
 ### Dashboard (`dashboard/`)
 
-- `app.py` — Streamlit entry point, initialises Supabase anon client in session state
-- `pages/overview.py` — salary landscape metrics, histogram, auto-refresh every 30s
-- `pages/predictions.py` — input form → API call → salary metrics → SSE token-by-token narrative streaming → structured display + chart
-- `pages/insights.py` — narrative list with sidebar filters (date, job family, location, experience), comparative charts
-- `components/charts.py` — Plotly wrappers, `render_chart_from_spec()`
+- `app.py` — Streamlit entry point and Overview page (hero, salary landscape metrics, histogram, auto-refresh). Uses `st.navigation` with `st.Page` for explicit sidebar labels and page ordering
+- `pages/reveal_your_true_salary.py` — input form → API call → salary metrics → SSE token-by-token narrative streaming → structured display + chart
+- `pages/insights.py` — narrative list with sidebar filters, comparative EDA charts, training data density section (violin plot + stacked histogram by experience level)
+- `components/charts.py` — Plotly wrappers, `render_chart_from_spec()`, `render_salary_density_by_experience()`, `render_salary_stacked_histogram_by_experience()`
 - `components/filters.py` — `FilterState` Pydantic model, `render_sidebar_filters()`
+
+Sidebar pages: **Overview** · **Reveal Your True Salary** · **Insights**
 
 ---
 

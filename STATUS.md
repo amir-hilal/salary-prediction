@@ -121,6 +121,7 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 | File | Status | Notes |
 |------|--------|-------|
 | `src/visualizations/charts.py` | ✅ | salary_histogram(), predicted_vs_actual_scatter(), feature_importance_bar(), from_chart_spec() dispatch |
+| `src/visualizations/eda.py` | ✅ | salary_density_by_experience() (violin plot), salary_stacked_histogram_by_experience() (stacked histogram by experience level) |
 
 ---
 
@@ -138,12 +139,12 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `dashboard/app.py` | ✅ | Entry point, session_state init, Supabase client |
+| `dashboard/app.py` | ✅ | Entry point + Overview page (hero, metrics, histogram, auto-refresh). Uses st.navigation for explicit sidebar labels |
 | `dashboard/components/filters.py` | ✅ | FilterState Pydantic model, render_sidebar_filters() |
-| `dashboard/components/charts.py` | ✅ | Plotly wrappers with error handling, render_chart_from_spec() |
-| `dashboard/pages/overview.py` | ✅ | Salary landscape, metrics, histogram, auto-refresh every 30 s |
-| `dashboard/pages/predictions.py` | ✅ | Prediction form → API call → salary metrics + SSE streaming narrative (token-by-token) + structured display + chart |
-| `dashboard/pages/insights.py` | ✅ | Narrative list, sidebar filters, filtered histogram, feature importance |
+| `dashboard/components/charts.py` | ✅ | Plotly wrappers, render_chart_from_spec(), render_salary_density_by_experience(), render_salary_stacked_histogram_by_experience() |
+| `dashboard/pages/reveal_your_true_salary.py` | ✅ | Prediction form → API call → salary metrics + SSE streaming narrative (token-by-token) + structured display + chart |
+| `dashboard/pages/insights.py` | ✅ | Narrative list, sidebar filters, comparative charts, training data density (violin + stacked histogram) |
+| `docs/demo-script.md` | ✅ | Non-technical marketing demo script for the dashboard |
 
 ---
 

@@ -1,14 +1,20 @@
-"""Salary Prediction Dashboard — entry point.
+"""Salary Prediction Dashboard — Overview (landing page).
 
-Streamlit multi-page app.  This file sets global page config and seeds
-``st.session_state`` with the Supabase anon client so all pages share a
-single connection without re-creating it on every rerun.
+Streamlit multi-page app entry point.  Seeds ``st.session_state`` with the
+Supabase anon client, renders the hero section, summary metrics, and a
+predicted-salary histogram.
+
+Uses st.navigation for explicit control over sidebar page labels and order.
 """
+
+import time
 
 import streamlit as st
 
 from config.settings import settings
 from src.database.client import get_anon_client
+from src.database.crud import get_recent_predictions
+from dashboard.components.charts import render_salary_histogram
 
 
 def _init_session_state() -> None:
@@ -28,53 +34,61 @@ st.set_page_config(
 
 _init_session_state()
 
-# ---------------------------------------------------------------------------
-# Hero section
-# ---------------------------------------------------------------------------
-
-st.title("Salary Prediction for Data Professionals")
-st.markdown(
-    "Get an instant salary estimate based on your experience, role, and location "
-    "— powered by machine learning and explained by AI."
-)
-
-st.divider()
 
 # ---------------------------------------------------------------------------
-# Feature cards
+# Overview page (inline — not a separate file)
 # ---------------------------------------------------------------------------
 
-c1, c2, c3 = st.columns(3)
+def _load_predictions() -> list[dict]:
+    try:
+        records = get_recent_predictions(limit=500)
+    except Exception as exc:
+        st.error(f"Could not load predictions from Supabase: {exc}")
+        return []
+    return [r.model_dump() for r in records]
 
-with c1:
-    st.subheader(":material/target: Predict", anchor=False)
+
+def overview_page() -> None:
+    """Render the Overview landing page."""
+
+    # Hero section
+    st.title("Salary Prediction for Data Professionals")
     st.markdown(
-        "Enter your experience level, job family, region, and company details "
-        "to get a salary estimate with a confidence range."
+        "Get an instant salary estimate based on your experience, role, and location "
+        "— powered by machine learning and explained by AI."
     )
 
-with c2:
-    st.subheader(":material/psychology: Understand", anchor=False)
+    st.divider()
+
+    # Feature cards
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        st.subheader(":material/target: Predict", anchor=False)
+        st.markdown(
+            "Enter your experience level, job family, region, and company details "
+            "to get a salary estimate with a confidence range."
+        )
+
+    with c2:
+        st.subheader(":material/psychology: Understand", anchor=False)
+        st.markdown(
+            "An AI-generated narrative explains **why** your prediction landed "
+            "where it did — covering key factors, uncertainty, and next steps."
+        )
+
+    with c3:
+        st.subheader(":material/bar_chart: Explore", anchor=False)
+        st.markdown(
+            "Browse historical predictions, compare salary distributions, and "
+            "filter by experience, region, or job family."
+        )
+
+    st.divider()
+
+    # CTA — centred button with shimmer animation
     st.markdown(
-        "An AI-generated narrative explains **why** your prediction landed "
-        "where it did — covering key factors, uncertainty, and next steps."
-    )
-
-with c3:
-    st.subheader(":material/bar_chart: Explore", anchor=False)
-    st.markdown(
-        "Browse historical predictions, compare salary distributions, and "
-        "filter by experience, region, or job family."
-    )
-
-st.divider()
-
-# ---------------------------------------------------------------------------
-# CTA — centred button with shimmer animation
-# ---------------------------------------------------------------------------
-
-st.markdown(
-    """
+        """
 <style>
 @keyframes shimmer {
   0%   { background-position: -200% center; }
@@ -111,26 +125,76 @@ st.markdown(
 }
 </style>
 <div class="cta-wrap">
-  <a href="/reveal_your_true_salary" target="_self">Reveal Your True Salary →</a>
+  <a href="/Reveal_Your_True_Salary" target="_self">Reveal Your True Salary →</a>
 </div>
 """,
-    unsafe_allow_html=True,
-)
+        unsafe_allow_html=True,
+    )
+
+    # How it works
+    st.markdown("#### How it works")
+    st.markdown(
+        "1. **Fill in your profile** — experience, role, company, and location.\n"
+        "2. **Get an estimate** — a point prediction plus a Q25–Q75 peer-group range.\n"
+        "3. **Read the narrative** — an AI explanation of the factors behind the number."
+    )
+
+    st.divider()
+
+    # Salary Landscape — summary metrics + histogram
+    st.subheader("Salary Landscape")
+    st.caption("See how recent predictions are distributed. Refresh to pull the latest data from Supabase.")
+
+    col_refresh, col_interval = st.columns([1, 3])
+    with col_refresh:
+        manual_refresh = st.button("Refresh now", icon=":material/refresh:")
+    with col_interval:
+        auto_refresh = st.toggle("Auto-refresh every 30 s", value=True)
+
+    if "overview_records" not in st.session_state or manual_refresh:
+        with st.spinner("Loading predictions…"):
+            st.session_state["overview_records"] = _load_predictions()
+
+    records: list[dict] = st.session_state["overview_records"]
+
+    if records:
+        salaries = [r["predicted_salary"] for r in records]
+        avg_salary = sum(salaries) / len(salaries)
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total predictions", f"{len(records):,}")
+        col2.metric("Average predicted salary", f"${avg_salary:,.0f}")
+        col3.metric("Latest prediction", f"${salaries[0]:,.0f}")
+    else:
+        st.info("No predictions yet. Head to **Reveal Your True Salary** to submit one.")
+
+    st.subheader("Predicted Salary Distribution")
+    render_salary_histogram(records)
+
+    with st.expander("Raw prediction data", expanded=False):
+        st.dataframe(records, use_container_width=True)
+
+    st.divider()
+
+    st.caption(
+        "Trained on 607 data-professional salaries (2020–2022). "
+        "Predictions are estimates, not guarantees."
+    )
+
+    # Auto-refresh loop
+    if auto_refresh and not manual_refresh:
+        time.sleep(30)
+        st.session_state["overview_records"] = _load_predictions()
+        st.rerun()
+
 
 # ---------------------------------------------------------------------------
-# How it works
+# Navigation — explicit sidebar labels and order
 # ---------------------------------------------------------------------------
 
-st.markdown("#### How it works")
-st.markdown(
-    "1. **Fill in your profile** — experience, role, company, and location.\n"
-    "2. **Get an estimate** — a point prediction plus a Q25–Q75 peer-group range.\n"
-    "3. **Read the narrative** — an AI explanation of the factors behind the number."
-)
-
-st.divider()
-
-st.caption(
-    "Trained on 607 data-professional salaries (2020–2022). "
-    "Predictions are estimates, not guarantees."
-)
+pg = st.navigation([
+    st.Page(overview_page, title="Overview", icon=":material/home:"),
+    st.Page("pages/reveal_your_true_salary.py", title="Reveal Your True Salary", icon=":material/target:"),
+    st.Page("pages/insights.py", title="Insights", icon=":material/bar_chart:"),
+])
+pg.run()
