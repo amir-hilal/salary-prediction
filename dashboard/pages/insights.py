@@ -11,7 +11,6 @@ full training dataset.
 """
 
 import logging
-from datetime import datetime
 
 import pandas as pd
 import streamlit as st
@@ -26,7 +25,6 @@ from dashboard.components.charts import (
     render_salary_by_remote_ratio,
     render_salary_trend,
 )
-from dashboard.components.filters import FilterState, render_sidebar_filters
 from src.database.crud import get_recent_narratives, get_recent_predictions
 
 logger = logging.getLogger(__name__)
@@ -51,12 +49,6 @@ def _load_training_df() -> pd.DataFrame:
     df = build_features(df)
     return df
 
-
-# ---------------------------------------------------------------------------
-# Sidebar filters
-# ---------------------------------------------------------------------------
-
-filters: FilterState = render_sidebar_filters()
 
 # ---------------------------------------------------------------------------
 # Page header
@@ -87,48 +79,6 @@ except Exception as exc:
     logger.exception("Failed to load predictions")
 
 all_records = [r.model_dump() for r in predictions_raw]
-
-
-def _parse_date(value: "datetime | str | None"):
-    """Return a date object regardless of whether value is a datetime or ISO string."""
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return datetime.fromisoformat(value).date()
-    if isinstance(value, datetime):
-        return value.date()
-    return None
-
-
-def _apply_filters(records: list[dict], f: FilterState) -> list[dict]:
-    """Filter prediction records using the active FilterState."""
-    out = records
-    if f.date_from:
-        out = [r for r in out if (d := _parse_date(r.get("created_at"))) and d >= f.date_from]
-    if f.date_to:
-        out = [r for r in out if (d := _parse_date(r.get("created_at"))) and d <= f.date_to]
-    if f.experience_level is not None:
-        out = [
-            r for r in out
-            if r.get("features", {}).get("experience_level") is not None
-            and r.get("features", {}).get("experience_level") in f.experience_level
-        ]
-    if f.location_region is not None:
-        out = [
-            r for r in out
-            if r.get("features", {}).get("location_region") is not None
-            and r.get("features", {}).get("location_region") in f.location_region
-        ]
-    if f.job_family is not None:
-        out = [
-            r for r in out
-            if r.get("features", {}).get("job_family") is not None
-            and r.get("features", {}).get("job_family") in f.job_family
-        ]
-    return out
-
-
-filtered_records = _apply_filters(all_records, filters)
 
 # ---------------------------------------------------------------------------
 # Tabs
@@ -195,9 +145,7 @@ with tab_patterns:
 # ---------------------------------------------------------------------------
 
 with tab_usage:
-    col1, col2 = st.columns(2)
-    col1.metric("Narratives available", len(narratives))
-    col2.metric("Filtered predictions", len(filtered_records))
+    st.metric("Narratives available", len(narratives))
 
     st.subheader("Prediction Volume Over Time")
     render_prediction_volume(all_records)
