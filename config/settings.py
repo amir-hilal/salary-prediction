@@ -23,18 +23,27 @@ class Settings(BaseSettings):
     dt_min_samples_leaf_options: list[int] = [1, 2, 4, 8]
     dt_cv_folds: int = 5
 
-    # Ollama
+    # LLM provider — "ollama" for local dev, "groq" for production
+    llm_provider: str
+
+    # Ollama (local)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "phi4-mini"
     ollama_timeout: int = 120
 
+    # Groq (production)
+    groq_api_key: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_timeout: int = 120
+
     # Supabase
-    supabase_url: str = ""
-    supabase_anon_key: str = ""
+    supabase_url: str
+    supabase_anon_key: str
     supabase_service_role_key: str = ""
 
     # Dashboard → API
-    api_base_url: str = "http://localhost:8000"
+    api_base_url: str
 
 
 settings = Settings()

@@ -5,11 +5,12 @@ from collections.abc import AsyncGenerator
 import httpx
 
 from config.settings import settings
+from src.llm.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
 
 
-class OllamaError(Exception):
+class OllamaError(LLMError):
     """Raised when the Ollama API returns an error or times out."""
 
 

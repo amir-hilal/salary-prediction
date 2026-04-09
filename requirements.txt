@@ -37,3 +37,6 @@ pytest-mock>=3.15.1
 # ─── Linting & Typing ────────────────────────────────────
 ruff>=0.15.9
 mypy>=1.20.0
+
+# ─── Project install (makes src/, config/, dashboard/ importable) ─────
+.

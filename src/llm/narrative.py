@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 
 from pydantic import BaseModel
 
-from src.llm.ollama_client import OllamaError, generate, generate_stream
+from src.llm.client import LLMError, generate, generate_stream
 
 logger = logging.getLogger(__name__)
 
@@ -299,8 +299,8 @@ async def generate_narrative_stream(
         async for token in generate_stream(prompt):
             full_text.append(token)
             yield token
-    except OllamaError as exc:
-        logger.warning("generate_narrative_stream | OllamaError: %s", exc)
+    except LLMError as exc:
+        logger.warning("generate_narrative_stream | LLMError: %s", exc)
         yield f"[ERROR] {exc}"
         return
 
