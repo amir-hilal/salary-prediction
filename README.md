@@ -4,9 +4,9 @@ End-to-end ML system that predicts data-profession salaries, generates LLM-power
 
 | | URL |
 |---|---|
-| **Dashboard** | `<!-- TODO: insert hosted Streamlit URL -->` |
-| **API (v1)** | `<!-- TODO: insert hosted FastAPI URL -->/api/v1` |
-| **API Docs** | `<!-- TODO: insert hosted FastAPI URL -->/docs` |
+| **Dashboard** | `https://salary-predic.streamlit.app/` |
+| **API (v1)** | `https://underground-riva-hilalpines-4f2281c2.koyeb.app/api/v1/` |
+| **API Docs** | `https://underground-riva-hilalpines-4f2281c2.koyeb.app/docs` |
 
 > **v1** is the current and only API version. All endpoints live under `/api/v1/`.
 
