@@ -149,3 +149,88 @@ async def test_health_status_is_ok(client) -> None:
 async def test_health_includes_model_version(client) -> None:
     body = (await client.get("/api/v1/health")).json()
     assert "model_version" in body
+
+
+# ── GET /api/v1/predict/{id}/narrative — SSE streaming ───────────────────────
+
+_VALID_UUID = "550e8400-e29b-41d4-a716-446655440000"
+
+_MOCK_CONTEXT = {
+    "prediction_id": _VALID_UUID,
+    "point_estimate": 125_000.0,
+    "range_low": 110_000.0,
+    "range_high": 140_000.0,
+    "currency": "USD",
+    "model_mae": 20_000.0,
+    "features": {"experience_level": 2, "is_us_company": 1},
+}
+
+
+async def _mock_stream(*tokens: str):
+    """Return an async generator that yields the given tokens."""
+    for token in tokens:
+        yield token
+
+
+async def test_stream_narrative_400_on_invalid_uuid(client) -> None:
+    response = await client.get("/api/v1/predict/not-a-uuid/narrative")
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_UUID"
+
+
+async def test_stream_narrative_404_on_missing_prediction(client, mocker) -> None:
+    mocker.patch(
+        "src.database.crud.get_prediction_context_async",
+        return_value=None,
+    )
+    response = await client.get(f"/api/v1/predict/{_VALID_UUID}/narrative")
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "NOT_FOUND"
+
+
+async def test_stream_narrative_returns_200_and_event_stream_content_type(
+    client, mocker
+) -> None:
+    mocker.patch(
+        "src.database.crud.get_prediction_context_async",
+        return_value=_MOCK_CONTEXT,
+    )
+    mocker.patch(
+        "src.llm.narrative.generate_narrative_stream",
+        return_value=_mock_stream("Hello"),
+    )
+    response = await client.get(f"/api/v1/predict/{_VALID_UUID}/narrative")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+
+async def test_stream_narrative_tokens_wrapped_in_sse_format(
+    client, mocker
+) -> None:
+    mocker.patch(
+        "src.database.crud.get_prediction_context_async",
+        return_value=_MOCK_CONTEXT,
+    )
+    mocker.patch(
+        "src.llm.narrative.generate_narrative_stream",
+        return_value=_mock_stream("Token1", "Token2"),
+    )
+    response = await client.get(f"/api/v1/predict/{_VALID_UUID}/narrative")
+    text = response.text
+    assert "data: Token1\n\n" in text
+    assert "data: Token2\n\n" in text
+
+
+async def test_stream_narrative_ends_with_done_sentinel(client, mocker) -> None:
+    mocker.patch(
+        "src.database.crud.get_prediction_context_async",
+        return_value=_MOCK_CONTEXT,
+    )
+    mocker.patch(
+        "src.llm.narrative.generate_narrative_stream",
+        return_value=_mock_stream("Hello"),
+    )
+    response = await client.get(f"/api/v1/predict/{_VALID_UUID}/narrative")
+    # Strip trailing whitespace; last non-empty SSE event must be [DONE].
+    events = [e for e in response.text.split("\n\n") if e.strip()]
+    assert events[-1] == "data: [DONE]"

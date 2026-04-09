@@ -148,8 +148,14 @@ if submitted:
     narrative_placeholder = st.empty()
     stream_error = False
 
+    if "narrative_stream_in_progress" not in st.session_state:
+        st.session_state.narrative_stream_in_progress = False
+
+    st.session_state.narrative_stream_in_progress = True
     try:
-        with httpx.Client(timeout=None) as client:
+        with httpx.Client(
+            timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0)
+        ) as client:
             with client.stream(
                 "GET",
                 f"{settings.api_base_url}/api/v1/predict/{prediction_id}/narrative",
@@ -176,6 +182,8 @@ if submitted:
             f"Could not connect to the narrative stream. Is the API running? ({exc})"
         )
         stream_error = True
+    finally:
+        st.session_state.narrative_stream_in_progress = False
 
     if stream_error:
         st.stop()

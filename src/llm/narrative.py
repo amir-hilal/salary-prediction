@@ -277,6 +277,21 @@ async def generate_narrative_stream(
     # match the pattern used elsewhere in the route layer.
     from src.database.crud import insert_narrative  # noqa: PLC0415
 
+    # Validate required keys before touching Ollama — yield a sentinel and
+    # return early so the SSE client sees a clean [ERROR] rather than a
+    # mid-stream KeyError that closes the connection silently.
+    required_keys = [
+        "prediction_id", "point_estimate", "range_low",
+        "range_high", "currency", "model_mae", "features",
+    ]
+    missing = [k for k in required_keys if k not in prediction_context]
+    if missing:
+        logger.error(
+            "generate_narrative_stream | missing context keys: %s", missing
+        )
+        yield f"[ERROR] Internal error: prediction context incomplete."
+        return
+
     prompt = build_prompt(prediction_context)
     full_text: list[str] = []
 
@@ -292,6 +307,10 @@ async def generate_narrative_stream(
     raw = "".join(full_text)
     logger.info("generate_narrative_stream | stream complete | length=%d", len(raw))
 
+    # NOTE: Persistence happens after all tokens are yielded.  If it fails,
+    # the client already received a complete narrative and [DONE] — there is
+    # no way to signal the failure downstream.  Monitor ERROR logs for
+    # "persist failed" entries to detect data-loss events.
     try:
         narrative = parse_narrative(raw)
         prediction_id: str = prediction_context["prediction_id"]
@@ -304,6 +323,8 @@ async def generate_narrative_stream(
             "generate_narrative_stream | persisted | prediction_id=%s", prediction_id
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "generate_narrative_stream | persist failed | error=%s", exc
+        logger.error(
+            "generate_narrative_stream | persist failed (DATA LOSS RISK) | prediction_id=%s | error=%s",
+            prediction_context.get("prediction_id", "UNKNOWN"),
+            exc,
         )

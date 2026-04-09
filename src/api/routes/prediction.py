@@ -186,10 +186,11 @@ async def stream_narrative(prediction_id: str, request: Request) -> StreamingRes
         )
 
     # Fetch prediction row to reconstruct context.
-    from src.database.crud import get_prediction_context  # noqa: PLC0415
+    # Use the async version to avoid blocking the event loop.
+    from src.database.crud import get_prediction_context_async  # noqa: PLC0415
 
     try:
-        context = get_prediction_context(prediction_id)
+        context = await get_prediction_context_async(prediction_id)
     except Exception as exc:
         logger.error("stream_narrative | context fetch failed | %s", exc)
         raise HTTPException(

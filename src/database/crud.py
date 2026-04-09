@@ -222,3 +222,42 @@ def get_prediction_context(prediction_id: str) -> dict | None:
         "features": row.get("features", {}),
     }
 
+
+async def get_prediction_context_async(prediction_id: str) -> dict | None:
+    """Async version of ``get_prediction_context`` for use in FastAPI routes.
+
+    Uses the async service-role client so the FastAPI event loop is never
+    blocked.  Returns ``None`` if the prediction does not exist.
+
+    Raises:
+        Exception: propagates Supabase network or auth errors to the caller.
+    """
+    try:
+        client = await get_client()
+        response = (
+            await client.table("predictions")
+            .select("id, features, predicted_salary, salary_range_low, salary_range_high, model_version, currency")
+            .eq("id", prediction_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error(
+            "get_prediction_context_async failed: prediction_id=%s %s", prediction_id, exc
+        )
+        raise
+
+    if not response.data:
+        return None
+
+    row = response.data[0]
+    return {
+        "prediction_id": row["id"],
+        "point_estimate": float(row["predicted_salary"]),
+        "range_low": float(row["salary_range_low"] or row["predicted_salary"]),
+        "range_high": float(row["salary_range_high"] or row["predicted_salary"]),
+        "currency": row.get("currency", "USD"),
+        "model_mae": 0.0,  # re-injected by the route from app.state
+        "features": row.get("features", {}),
+    }
+
