@@ -33,5 +33,8 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
+    # Dashboard → API
+    api_base_url: str = "http://localhost:8000"
+
 
 settings = Settings()

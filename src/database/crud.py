@@ -142,3 +142,16 @@ def get_narrative_for_prediction(prediction_id: str) -> NarrativeRecord | None:
         return None
     return NarrativeRecord(**response.data[0])
 
+
+def get_recent_narratives(limit: int = 50) -> list[NarrativeRecord]:
+    """Return the most recent narratives ordered by created_at descending."""
+    response = (
+        get_anon_client()
+        .table("narratives")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return [NarrativeRecord(**row) for row in response.data]
+

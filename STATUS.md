@@ -141,9 +141,9 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 | `dashboard/app.py` | ⬜ | Entry point, session_state init, Supabase client |
 | `dashboard/components/filters.py` | ⬜ | render_sidebar_filters() → FilterState |
 | `dashboard/components/charts.py` | ⬜ | Plotly wrappers consuming ChartSpec |
-| `dashboard/pages/1_overview.py` | ⬜ | Salary landscape, auto-refresh |
-| `dashboard/pages/2_predictions.py` | ⬜ | Prediction form, LLM narrative display |
-| `dashboard/pages/3_insights.py` | ⬜ | Narrative list, comparative chart |
+| `dashboard/pages/overview.py` | ⬜ | Salary landscape, auto-refresh |
+| `dashboard/pages/predictions.py` | ⬜ | Prediction form, LLM narrative display |
+| `dashboard/pages/insights.py` | ⬜ | Narrative list, comparative chart |
 
 ---
 

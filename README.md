@@ -140,9 +140,9 @@ salary-prediction/
 ├── dashboard/
 │   ├── app.py                         # Streamlit entry point
 │   ├── pages/
-│   │   ├── 1_overview.py
-│   │   ├── 2_predictions.py
-│   │   └── 3_insights.py
+│   │   ├── overview.py
+│   │   ├── predictions.py
+│   │   └── insights.py
 │   └── components/
 │       ├── charts.py                  # Reusable chart components
 │       └── filters.py                 # Sidebar filter widgets
