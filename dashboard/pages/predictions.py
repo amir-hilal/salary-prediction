@@ -5,6 +5,7 @@ stream → structured display + chart.
 """
 
 import logging
+import re
 
 import httpx
 import streamlit as st
@@ -44,6 +45,38 @@ _PILL_STYLES = [
 ]
 
 _TOTAL_STEPS = 4
+
+# Regex for on-the-fly stream formatting
+_SECTION_HEAD_RE = re.compile(
+    r"^\d+\.\s*(SUMMARY|UNCERTAINTY|INSIGHTS|COMPARISON|RECOMMENDATION)\s*$",
+    re.MULTILINE,
+)
+_CHART_BLOCK_RE = re.compile(
+    r"(?:^\d+\.\s*CHART\s*\n)?\[CHART\].*?(?:\[/CHART\]|$)",
+    re.DOTALL | re.MULTILINE,
+)
+_SECTION_NICE = {
+    "SUMMARY": "**Summary**",
+    "UNCERTAINTY": "**Uncertainty**",
+    "INSIGHTS": "**Key Insights**",
+    "COMPARISON": "**Comparison**",
+    "RECOMMENDATION": "**Recommendation**",
+}
+
+
+def _format_stream(raw: str) -> str:
+    """Transform raw LLM output into clean markdown for live display."""
+    text = _CHART_BLOCK_RE.sub("", raw)
+    # Remove a bare "5. CHART" header if left over
+    text = re.sub(r"^\d+\.\s*CHART\s*$", "", text, flags=re.MULTILINE)
+    def _replace_header(m: re.Match) -> str:
+        return _SECTION_NICE.get(m.group(1).upper(), m.group(0))
+    text = _SECTION_HEAD_RE.sub(_replace_header, text)
+    # Convert • bullets to markdown -
+    text = re.sub(r"^\s*•\s*", "- ", text, flags=re.MULTILINE)
+    # Collapse excessive blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +256,7 @@ if st.session_state.step == 5:
     # Pre-allocate ALL page slots immediately to clear old step-4 content.
     salary_bar = st.empty()
     _div1 = st.empty()
-    thinking_slot = st.empty()
-    narrative_slot = st.empty()
-    chart_slot = st.empty()
+    canvas = st.empty()
     footer_div = st.empty()
     footer_meta = st.empty()
     footer_btn = st.empty()
@@ -288,12 +319,11 @@ if st.session_state.step == 5:
     salary_bar.markdown(_salary_bar_html(salary), unsafe_allow_html=True)
     _div1.divider()
 
-    # -- Narrative section --------------------------------------------------
+    # -- Narrative section (all inside the canvas) -------------------------
     if not st.session_state.get("narrative_done", False):
-        # Stream SSE tokens into the collapsed "Thinking…" status (hidden).
-        # After the stream, show structured content as visible markdown.
-        with thinking_slot.status("Thinking…", expanded=False) as thinking:
-            _hidden_stream = st.empty()
+        # Stream SSE tokens into the canvas — formatted on-the-fly.
+        with canvas.status("Thinking\u2026", expanded=True) as _status:
+            _stream_md = st.empty()
             stream_error = False
 
             try:
@@ -314,39 +344,21 @@ if st.session_state.step == 5:
                                 stream_error = True
                                 break
                             accumulated += token.replace("\\n", "\n")
-                            _hidden_stream.markdown(accumulated)
-            except httpx.HTTPStatusError as exc:
+                            _stream_md.markdown(_format_stream(accumulated))
+            except httpx.HTTPStatusError:
                 stream_error = True
-            except httpx.RequestError as exc:
+            except httpx.RequestError:
                 stream_error = True
 
-        if stream_error:
-            thinking_slot.status("Narrative failed", state="error", expanded=False)
-            narrative_slot.error(
-                "Could not generate narrative. Please try a new prediction."
-            )
-        else:
-            thinking_slot.status("Analysis done", state="complete", expanded=False)
-            st.session_state.narrative_done = True
+            # Render chart inside the canvas after stream completes
+            if not stream_error:
+                narrative = None
+                try:
+                    narrative = get_narrative_for_prediction(prediction_id)
+                except Exception as exc:
+                    logger.warning("Could not fetch narrative record: %s", exc)
 
-            # Fetch structured narrative from Supabase and render below
-            narrative = None
-            try:
-                narrative = get_narrative_for_prediction(prediction_id)
-            except Exception as exc:
-                logger.warning("Could not fetch narrative record: %s", exc)
-
-            if narrative is not None:
-                with narrative_slot.container():
-                    st.markdown(f"**Summary**\n\n{narrative.summary}")
-                    st.markdown(f"**Uncertainty**\n\n{narrative.uncertainty}")
-                    if narrative.insights:
-                        st.markdown("**Key Insights**")
-                        for insight in narrative.insights:
-                            st.markdown(f"- {insight}")
-                    st.markdown(f"**Recommendation**\n\n{narrative.recommendation}")
-
-                with chart_slot.container():
+                if narrative is not None:
                     st.divider()
                     st.subheader("Salary Distribution")
                     recent_records = [r.model_dump() for r in get_recent_predictions(limit=200)]
@@ -358,18 +370,23 @@ if st.session_state.step == 5:
                     render_chart_from_spec(
                         chart_spec, recent_records, point_estimate=salary["mean"],
                     )
+
+        if stream_error:
+            canvas.status("Narrative failed", state="error", expanded=False)
+            st.error("Could not generate narrative. Please try a new prediction.")
+        else:
+            canvas.status("Analysis done", state="complete", expanded=True)
+            st.session_state.narrative_done = True
     else:
-        # Subsequent reruns — narrative already generated, fetch from Supabase
-        thinking_slot.status("Analysis done", state="complete", expanded=False)
+        # Subsequent reruns — narrative already generated, render inside canvas
+        with canvas.status("Analysis done", state="complete", expanded=True):
+            narrative = None
+            try:
+                narrative = get_narrative_for_prediction(prediction_id)
+            except Exception as exc:
+                logger.warning("Could not fetch narrative record: %s", exc)
 
-        narrative = None
-        try:
-            narrative = get_narrative_for_prediction(prediction_id)
-        except Exception as exc:
-            logger.warning("Could not fetch narrative record: %s", exc)
-
-        if narrative is not None:
-            with narrative_slot.container():
+            if narrative is not None:
                 st.markdown(f"**Summary**\n\n{narrative.summary}")
                 st.markdown(f"**Uncertainty**\n\n{narrative.uncertainty}")
                 if narrative.insights:
@@ -378,7 +395,6 @@ if st.session_state.step == 5:
                         st.markdown(f"- {insight}")
                 st.markdown(f"**Recommendation**\n\n{narrative.recommendation}")
 
-            with chart_slot.container():
                 st.divider()
                 st.subheader("Salary Distribution")
                 recent_records = [r.model_dump() for r in get_recent_predictions(limit=200)]
