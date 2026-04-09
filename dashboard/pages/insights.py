@@ -44,10 +44,10 @@ def _load_training_df() -> pd.DataFrame:
 
     from config.settings import settings
 
-    if settings.data_raw_path.exists():
-        df = load_raw(settings.data_raw_path)
-    else:
+    if settings.environment == "production":
         df = load_raw_from_supabase()
+    else:
+        df = load_raw(settings.data_raw_path)
 
     df = drop_leakage_columns(df)
     df = cap_salary_outliers(df)

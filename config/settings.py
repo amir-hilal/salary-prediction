@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     dt_min_samples_leaf_options: list[int] = [1, 2, 4, 8]
     dt_cv_folds: int = 5
 
+    # Environment — "development" for local, "production" for deployed
+    environment: str = "development"
+
     # LLM provider — "ollama" for local dev, "groq" for production
     llm_provider: str
 
