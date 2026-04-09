@@ -1,7 +1,7 @@
 """Page 2 — Prediction Explorer.
 
-Users fill in candidate features, call the FastAPI /predict endpoint, and see
-the returned salary estimate alongside the LLM-generated narrative and chart.
+Guided stepper form → FastAPI /predict call → salary metrics → SSE narrative
+stream → structured display + chart.
 """
 
 import logging
@@ -10,152 +10,182 @@ import httpx
 import streamlit as st
 
 from config.settings import settings
-from src.database.crud import get_narrative_for_prediction, get_recent_predictions
 from dashboard.components.charts import render_chart_from_spec
+from src.database.crud import get_narrative_for_prediction, get_recent_predictions
 from src.llm.narrative import ChartSpec
 
 logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Prediction Explorer", layout="wide")
 
-st.title("Prediction Explorer")
-st.caption("Fill in the form below and click **Predict** to get a salary estimate.")
-
 # ---------------------------------------------------------------------------
-# Input form
+# Label maps (code → human-readable)
 # ---------------------------------------------------------------------------
 
-with st.form("prediction_form"):
-    col1, col2 = st.columns(2)
+_EXP_LABELS = {0: "Entry-level", 1: "Mid-level", 2: "Senior", 3: "Executive"}
+_EMP_LABELS = {0: "Part-time", 1: "Freelance", 2: "Contract", 3: "Full-time"}
+_REMOTE_LABELS = {0: "On-site", 50: "Hybrid", 100: "Remote"}
+_SIZE_LABELS = {0: "Small", 1: "Medium", 2: "Large"}
+_FAMILY_LABELS = {
+    0: "Other", 1: "Analytics", 2: "Data Science",
+    3: "Data Engineering", 4: "ML / AI", 5: "Leadership",
+}
+_REGION_LABELS = {0: "Rest of World", 1: "Asia Pacific", 2: "Europe", 3: "North America"}
+_US_LABELS = {0: "No", 1: "Yes"}
 
-    with col1:
-        experience_level = st.selectbox(
-            "Experience level",
-            options=[0, 1, 2, 3],
-            format_func=lambda x: ["Entry-level", "Mid-level", "Senior", "Executive"][x],
-        )
-        employment_type = st.selectbox(
-            "Employment type",
-            options=[0, 1, 2, 3],
-            format_func=lambda x: ["Part-time", "Freelance", "Contract", "Full-time"][x],
-            index=3,
-        )
-        remote_ratio = st.selectbox(
-            "Remote ratio",
-            options=[0, 50, 100],
-            format_func=lambda x: {0: "On-site (0%)", 50: "Hybrid (50%)", 100: "Remote (100%)"}[x],
-            index=2,
-        )
-        company_size = st.selectbox(
-            "Company size",
-            options=[0, 1, 2],
-            format_func=lambda x: ["Small", "Medium", "Large"][x],
-            index=1,
-        )
+# Pill badge colours (CSS background / border pairs for the profile summary)
+_PILL_STYLES = [
+    ("#e8f0fe", "#4F8EF7", "#1a56db"),  # blue
+    ("#e6f4ea", "#34a853", "#1e7e34"),  # green
+    ("#fef3e2", "#f7a24f", "#c47a1a"),  # orange
+    ("#f3e8fd", "#9b59b6", "#6c3082"),  # violet
+    ("#fce8e8", "#e74c3c", "#b71c1c"),  # red
+    ("#eef0f2", "#8e99a4", "#5a6370"),  # gray
+]
 
-    with col2:
-        work_year = st.number_input("Work year", min_value=2020, max_value=2030, value=2024)
-        job_family = st.selectbox(
-            "Job family",
-            options=[0, 1, 2, 3, 4, 5],
-            format_func=lambda x: [
-                "Other", "Analytics", "Data Science",
-                "Data Engineering", "ML / AI", "Leadership",
-            ][x],
-            index=2,
-        )
-        location_region = st.selectbox(
-            "Location region",
-            options=[0, 1, 2, 3],
-            format_func=lambda x: [
-                "Rest of World", "Asia Pacific", "Europe", "North America",
-            ][x],
-            index=3,
-        )
-        is_us_company = st.radio(
-            "US-based company?",
-            options=[1, 0],
-            format_func=lambda x: "Yes" if x else "No",
-            horizontal=True,
-        )
+_TOTAL_STEPS = 4
 
-    submitted = st.form_submit_button("Predict", type="primary")
 
 # ---------------------------------------------------------------------------
-# Prediction call
+# Session-state initialisation
 # ---------------------------------------------------------------------------
 
-if submitted:
-    payload = {
-        "experience_level": experience_level,
-        "employment_type": employment_type,
-        "remote_ratio": remote_ratio,
-        "company_size": company_size,
-        "work_year": int(work_year),
-        "job_family": job_family,
-        "location_region": location_region,
-        "is_us_company": is_us_company,
+def _init_stepper() -> None:
+    defaults: dict = {
+        "step": 1,
+        "ss_experience_level": 2,
+        "ss_employment_type": 3,
+        "ss_job_family": 2,
+        "ss_remote_ratio": 100,
+        "ss_company_size": 1,
+        "ss_location_region": 3,
+        "ss_is_us_company": 1,
+        "ss_work_year": 2026,
+        # Result state
+        "prediction_result": None,
+        "prediction_payload": None,
     }
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
 
-    with st.spinner("Calling the prediction API…"):
-        try:
-            response = httpx.post(
-                f"{settings.api_base_url}/api/v1/predict",
-                json=payload,
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            try:
-                result = response.json()
-            except ValueError as json_exc:
-                st.error(f"API returned invalid JSON: {json_exc}")
-                st.stop()
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 422:
-                st.error(f"Validation error — check your inputs. ({exc.response.text})")
-            else:
-                st.error(f"Server error {exc.response.status_code}: {exc.response.text}")
-            st.stop()
-        except httpx.RequestError as exc:
-            st.error(f"Could not reach the API at {settings.api_base_url}. Is it running?  ({exc})")
-            st.stop()
 
-    if "salary" not in result or "prediction_id" not in result:
-        st.error("API returned an unexpected response structure. Please try again.")
-        st.stop()
+_init_stepper()
+
+
+def _reset_stepper() -> None:
+    for key in [
+        "step", "ss_experience_level", "ss_employment_type", "ss_job_family",
+        "ss_remote_ratio", "ss_company_size", "ss_location_region",
+        "ss_is_us_company", "ss_work_year", "prediction_result",
+        "prediction_payload",
+    ]:
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+def _go_next() -> None:
+    st.session_state.step = min(st.session_state.step + 1, _TOTAL_STEPS)
+
+
+def _go_back() -> None:
+    st.session_state.step = max(st.session_state.step - 1, 1)
+
+
+def _profile_parts() -> list[str]:
+    """Return the list of human-readable profile labels."""
+    parts = [
+        _EXP_LABELS[st.session_state.ss_experience_level],
+        _EMP_LABELS[st.session_state.ss_employment_type],
+        _REMOTE_LABELS[st.session_state.ss_remote_ratio],
+        _FAMILY_LABELS[st.session_state.ss_job_family],
+        _REGION_LABELS[st.session_state.ss_location_region],
+        f"{_SIZE_LABELS[st.session_state.ss_company_size]} company",
+    ]
+    if st.session_state.ss_location_region == 3:  # North America
+        parts.append("US company" if st.session_state.ss_is_us_company else "Non-US company")
+    return parts
+
+
+def _render_pills() -> None:
+    """Render profile labels as styled pill badges using HTML."""
+    parts = _profile_parts()
+    spans = []
+    for i, label in enumerate(parts):
+        bg, border, text = _PILL_STYLES[i % len(_PILL_STYLES)]
+        spans.append(
+            f'<span style="display:inline-block;padding:4px 14px;margin:3px 4px;'
+            f'border-radius:999px;border:1.5px solid {border};'
+            f'background:{bg};color:{text};font-size:0.85rem;'
+            f'font-weight:600;line-height:1.4;">{label}</span>'
+        )
+    st.markdown("".join(spans), unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Page header (only shown during stepper steps, not results)
+# ---------------------------------------------------------------------------
+
+# ===== RESULTS VIEW (step == 5) ===========================================
+
+if st.session_state.step == 5:
+    result = st.session_state.prediction_result
+    if result is None:
+        _reset_stepper()
+        st.rerun()
+
     salary = result["salary"]
-    if not isinstance(salary, dict) or not {"mean", "low", "high"}.issubset(salary):
-        st.error("Salary data is incomplete. Please try again.")
-        st.stop()
     prediction_id: str = result["prediction_id"]
 
-    # -----------------------------------------------------------------------
-    # Display salary result
-    # -----------------------------------------------------------------------
+    # -- Profile pills ------------------------------------------------------
+    _render_pills()
 
-    st.success("Prediction complete!")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Predicted salary", f"${salary['mean']:,.0f}")
-    m2.metric("Peer range (low)", f"${salary['low']:,.0f}")
-    m3.metric("Peer range (high)", f"${salary['high']:,.0f}")
-    st.caption(f"Model version: `{result['model_version']}` | Prediction ID: `{prediction_id}`")
+    st.divider()
 
-    # -----------------------------------------------------------------------
-    # LLM Narrative — streamed token by token via SSE
-    # -----------------------------------------------------------------------
+    # -- Horizontal salary range bar ----------------------------------------
+    low, mean, high = salary["low"], salary["mean"], salary["high"]
+    span = high - low if high != low else 1.0
+    pct = ((mean - low) / span) * 100
 
-    st.subheader("AI Narrative")
-    narrative_placeholder = st.empty()
+    st.markdown(
+        f"""
+<div style="margin:1.5rem 0;">
+  <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#888;margin-bottom:4px;">
+    <span>Peer range (low)</span>
+    <span>Predicted salary</span>
+    <span>Peer range (high)</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.15rem;margin-bottom:8px;">
+    <span>${low:,.0f}</span>
+    <span>${mean:,.0f}</span>
+    <span>${high:,.0f}</span>
+  </div>
+  <div style="position:relative;height:12px;background:linear-gradient(90deg,#4F8EF7 0%,#F7A24F 100%);border-radius:6px;">
+    <div style="
+      position:absolute;
+      left:{pct:.1f}%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:18px;height:18px;
+      background:#fff;
+      border:3px solid #4F8EF7;
+      border-radius:50%;
+    "></div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    # -- LLM Narrative — streamed via SSE -----------------------------------
+    status = st.status("Generating narrative…", expanded=True)
+    narrative_placeholder = status.empty()
     stream_error = False
 
-    if "narrative_stream_in_progress" not in st.session_state:
-        st.session_state.narrative_stream_in_progress = False
-
-    st.session_state.narrative_stream_in_progress = True
     try:
-        with httpx.Client(
-            timeout=httpx.Timeout(60.0, connect=10.0)
-        ) as client:
+        with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
             with client.stream(
                 "GET",
                 f"{settings.api_base_url}/api/v1/predict/{prediction_id}/narrative",
@@ -174,45 +204,36 @@ if submitted:
                         )
                         stream_error = True
                         break
-                    # Unescape newlines that were escaped for SSE transport.
                     accumulated += token.replace("\\n", "\n")
                     narrative_placeholder.markdown(accumulated)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
-            narrative_placeholder.error(
-                "Prediction was not saved in time. Please try again in a moment."
-            )
+            narrative_placeholder.error("Prediction not found. Please try again.")
         else:
             narrative_placeholder.error(
-                f"Narrative stream failed with status {exc.response.status_code}."
+                f"Narrative stream failed ({exc.response.status_code})."
             )
         stream_error = True
     except httpx.RequestError as exc:
-        narrative_placeholder.error(
-            f"Could not connect to the narrative stream. Is the API running? ({exc})"
-        )
+        narrative_placeholder.error(f"Could not reach the API. ({exc})")
         stream_error = True
-    finally:
-        st.session_state.narrative_stream_in_progress = False
 
     if stream_error:
-        st.stop()
+        status.update(label="Narrative failed", state="error", expanded=False)
+    else:
+        status.update(label="Narrative complete", state="complete", expanded=False)
 
-    # -----------------------------------------------------------------------
-    # Structured display (parsed NarrativeResult) + chart
-    # After the stream the narrative is stored in Supabase; fetch it once.
-    # -----------------------------------------------------------------------
+    # -- Structured narrative (from Supabase) after stream ------------------
+    if not stream_error:
+        narrative = None
+        try:
+            narrative = get_narrative_for_prediction(prediction_id)
+        except Exception as exc:
+            logger.warning("Could not fetch narrative record: %s", exc)
 
-    narrative = None
-    try:
-        narrative = get_narrative_for_prediction(prediction_id)
-    except Exception as exc:
-        logger.warning("Could not fetch narrative record after stream: %s", exc)
+        if narrative is not None:
+            st.subheader("AI Narrative")
 
-    if narrative is not None:
-        narrative_placeholder.empty()
-
-        with st.container():
             st.markdown(f"**Summary**\n\n{narrative.summary}")
             st.markdown(f"**Uncertainty**\n\n{narrative.uncertainty}")
 
@@ -223,19 +244,208 @@ if submitted:
 
             st.markdown(f"**Recommendation**\n\n{narrative.recommendation}")
 
-        # -------------------------------------------------------------------
-        # Chart from spec
-        # -------------------------------------------------------------------
+            st.divider()
 
-        st.subheader("Chart")
-        recent_records = [r.model_dump() for r in get_recent_predictions(limit=200)]
-        chart_spec = (
-            ChartSpec(**narrative.chart_spec)
-            if isinstance(narrative.chart_spec, dict)
-            else narrative.chart_spec
+            # -- Chart ------------------------------------------------------
+            st.subheader("Salary Distribution")
+            recent_records = [r.model_dump() for r in get_recent_predictions(limit=200)]
+            chart_spec = (
+                ChartSpec(**narrative.chart_spec)
+                if isinstance(narrative.chart_spec, dict)
+                else narrative.chart_spec
+            )
+            render_chart_from_spec(
+                chart_spec, recent_records, point_estimate=salary["mean"],
+            )
+
+    # -- New prediction button + metadata footer -----------------------------
+    st.divider()
+    st.caption(
+        f"Work year: {st.session_state.ss_work_year} · "
+        f"Model: `{result['model_version']}` · "
+        f"ID: `{prediction_id}`"
+    )
+    if st.button("New Prediction", type="primary"):
+        _reset_stepper()
+        st.rerun()
+
+    st.stop()
+
+# ===== STEPPER VIEW (steps 1–4) ===========================================
+
+st.title("Prediction Explorer")
+st.caption("Answer a few questions and get an AI-explained salary estimate.")
+
+# Progress bar
+st.progress(st.session_state.step / _TOTAL_STEPS)
+st.markdown(
+    f"**Step {st.session_state.step} of {_TOTAL_STEPS}** — "
+    + ["About You", "Your Role", "Company & Location", "Review & Predict"][
+        st.session_state.step - 1
+    ]
+)
+
+# ---------------------------------------------------------------------------
+# Step 1 — About You
+# ---------------------------------------------------------------------------
+
+if st.session_state.step == 1:
+    st.session_state.ss_experience_level = st.selectbox(
+        "Experience level",
+        options=list(_EXP_LABELS.keys()),
+        format_func=lambda x: _EXP_LABELS[x],
+        index=list(_EXP_LABELS.keys()).index(st.session_state.ss_experience_level),
+        key="w_experience_level",
+    )
+    st.session_state.ss_employment_type = st.selectbox(
+        "Employment type",
+        options=list(_EMP_LABELS.keys()),
+        format_func=lambda x: _EMP_LABELS[x],
+        index=list(_EMP_LABELS.keys()).index(st.session_state.ss_employment_type),
+        key="w_employment_type",
+    )
+
+    st.button("Next →", on_click=_go_next, type="primary")
+
+# ---------------------------------------------------------------------------
+# Step 2 — Your Role
+# ---------------------------------------------------------------------------
+
+elif st.session_state.step == 2:
+    st.session_state.ss_job_family = st.selectbox(
+        "Job family",
+        options=list(_FAMILY_LABELS.keys()),
+        format_func=lambda x: _FAMILY_LABELS[x],
+        index=list(_FAMILY_LABELS.keys()).index(st.session_state.ss_job_family),
+        key="w_job_family",
+    )
+    st.session_state.ss_remote_ratio = st.selectbox(
+        "Remote ratio",
+        options=[0, 50, 100],
+        format_func=lambda x: _REMOTE_LABELS[x],
+        index=[0, 50, 100].index(st.session_state.ss_remote_ratio),
+        key="w_remote_ratio",
+    )
+
+    c_back, c_next = st.columns(2)
+    c_back.button("← Back", on_click=_go_back)
+    c_next.button("Next →", on_click=_go_next, type="primary")
+
+# ---------------------------------------------------------------------------
+# Step 3 — Company & Location
+# ---------------------------------------------------------------------------
+
+elif st.session_state.step == 3:
+    st.session_state.ss_company_size = st.selectbox(
+        "Company size",
+        options=list(_SIZE_LABELS.keys()),
+        format_func=lambda x: _SIZE_LABELS[x],
+        index=list(_SIZE_LABELS.keys()).index(st.session_state.ss_company_size),
+        key="w_company_size",
+    )
+    st.session_state.ss_location_region = st.selectbox(
+        "Location region",
+        options=list(_REGION_LABELS.keys()),
+        format_func=lambda x: _REGION_LABELS[x],
+        index=list(_REGION_LABELS.keys()).index(st.session_state.ss_location_region),
+        key="w_location_region",
+    )
+
+    # Conditional: show is_us_company only for North America (3)
+    if st.session_state.ss_location_region == 3:
+        st.session_state.ss_is_us_company = st.radio(
+            "US-based company?",
+            options=[1, 0],
+            format_func=lambda x: "Yes" if x else "No",
+            index=[1, 0].index(st.session_state.ss_is_us_company),
+            horizontal=True,
+            key="w_is_us_company",
         )
-        render_chart_from_spec(
-            chart_spec,
-            recent_records,
-            point_estimate=salary["mean"],
-        )
+    else:
+        st.session_state.ss_is_us_company = 0
+
+    c_back, c_next = st.columns(2)
+    c_back.button("← Back", on_click=_go_back)
+    c_next.button("Next →", on_click=_go_next, type="primary")
+
+# ---------------------------------------------------------------------------
+# Step 4 — Review & Predict
+# ---------------------------------------------------------------------------
+
+elif st.session_state.step == 4:
+    st.markdown("**" + " · ".join(_profile_parts()) + "**")
+
+    st.session_state.ss_work_year = st.number_input(
+        "Work year",
+        min_value=2020,
+        max_value=2030,
+        value=st.session_state.ss_work_year,
+        key="w_work_year",
+    )
+    st.warning(
+        "This model was trained on salary data from 2020, 2021, and 2022. "
+        "Predictions for other years are extrapolated and may be less reliable."
+    )
+
+    c_back, c_predict = st.columns(2)
+    c_back.button("← Back", on_click=_go_back)
+
+    if c_predict.button("Predict", type="primary"):
+        payload = {
+            "experience_level": st.session_state.ss_experience_level,
+            "employment_type": st.session_state.ss_employment_type,
+            "remote_ratio": st.session_state.ss_remote_ratio,
+            "company_size": st.session_state.ss_company_size,
+            "work_year": int(st.session_state.ss_work_year),
+            "job_family": st.session_state.ss_job_family,
+            "location_region": st.session_state.ss_location_region,
+            "is_us_company": st.session_state.ss_is_us_company,
+        }
+
+        with st.status("Predicting…", expanded=True) as status:
+            try:
+                response = httpx.post(
+                    f"{settings.api_base_url}/api/v1/predict",
+                    json=payload,
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                result = response.json()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 422:
+                    st.error(f"Validation error — check your inputs. ({exc.response.text})")
+                else:
+                    st.error(f"Server error {exc.response.status_code}: {exc.response.text}")
+                status.update(label="Prediction failed", state="error", expanded=False)
+                st.stop()
+            except httpx.RequestError as exc:
+                st.error(f"Could not reach the API. Is it running? ({exc})")
+                status.update(label="Prediction failed", state="error", expanded=False)
+                st.stop()
+            except ValueError as exc:
+                st.error(f"API returned invalid JSON. ({exc})")
+                status.update(label="Prediction failed", state="error", expanded=False)
+                st.stop()
+
+        if "salary" not in result or "prediction_id" not in result:
+            st.error("Unexpected API response. Please try again.")
+            st.stop()
+        salary = result["salary"]
+        if not isinstance(salary, dict) or not {"mean", "low", "high"}.issubset(salary):
+            st.error("Salary data is incomplete. Please try again.")
+            st.stop()
+
+        st.session_state.prediction_result = result
+        st.session_state.prediction_payload = payload
+        st.session_state.step = 5
+        st.rerun()
+
+# ---------------------------------------------------------------------------
+# Start-over button (visible on steps 2–4)
+# ---------------------------------------------------------------------------
+
+if st.session_state.step > 1:
+    st.divider()
+    if st.button("Start over"):
+        _reset_stepper()
+        st.rerun()

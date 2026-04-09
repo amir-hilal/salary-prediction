@@ -27,8 +27,8 @@ filters: FilterState = render_sidebar_filters()
 
 st.title("Narrative Insights")
 st.caption(
-    "Browse AI-generated salary narratives.  "
-    "Use the sidebar filters to narrow the view."
+    "Read AI-generated explanations for past predictions. "
+    "Use the sidebar filters to narrow by date, experience, region, or job family."
 )
 
 # ---------------------------------------------------------------------------

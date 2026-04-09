@@ -28,12 +28,12 @@ def _load_predictions() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 st.title("Salary Landscape")
-st.caption("Live view of the most recent 500 predictions from the API.")
+st.caption("See how recent predictions are distributed. Refresh to pull the latest data from Supabase.")
 
 # Auto-refresh controls ---------------------------------------------------
 col_refresh, col_interval = st.columns([1, 3])
 with col_refresh:
-    manual_refresh = st.button("🔄 Refresh now")
+    manual_refresh = st.button("Refresh now", icon=":material/refresh:")
 with col_interval:
     auto_refresh = st.toggle("Auto-refresh every 30 s", value=True)
 
