@@ -188,20 +188,19 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 ---
 
-## Known Issues & UI/UX Improvements
+## Known Issues & Planned Improvements
 
 ### Model
 - R² = 0.453 — the model only explains ~45% of salary variance. The remaining 55% is driven by factors outside the dataset (negotiation skill, company brand, niche specialisations, stock/bonus, etc.). This is an inherent limitation of the feature set, not a code bug.
 
-### Dashboard — General
-- The landing page (Overview) is generic — it should clearly communicate what this application does, who it's for, and how to use it before the user starts exploring.
+### Dashboard — Insights Tab
+The Insights page currently shows only three things: a narrative list, a single filtered salary histogram, and a static feature-importance bar chart. The raw dataset and prediction history contain far more signal. The following EDA views should be added:
 
-### Dashboard — Prediction Form
-- The form currently shows all 8 inputs at once in two columns. It should be reworked into a **stepper** (one input per step) so the user can focus on a single choice at a time.
-- **Conditional logic missing**: if the user selects a region other than North America, `is_us_company` should automatically default to `0` (Non-US) and be hidden or disabled — a non-North-America US company is contradictory.
-- **Work year** should default to `2026` (the current year) instead of requiring manual entry. A disclaimer should be shown: _"This model was trained on salary data from 2020, 2021, and 2022. Predictions for other years are extrapolated and may be less reliable."_
-
-### Dashboard — Prediction Results
-- After clicking **Predict**, the results page should show the user's selected inputs as a compact header at the top (not the raw form).
-- The rest of the screen should be a clean canvas for the streaming narrative. During loading, show staged status messages: _"Predicting…"_ (while waiting for the API response) → _"Thinking…"_ (while the LLM narrative streams in).
-- The current layout mixes metrics, narrative text, and charts in a cluttered single column — needs visual hierarchy.
+- **Salary by experience level** — box plot or grouped bar chart showing distribution across Entry-level / Mid-level / Senior / Executive. This is the single strongest predictor (35% importance) and deserves a dedicated visual.
+- **Salary by region** — grouped bar or violin plot comparing North America, Europe, Asia Pacific, and Rest of World. Should highlight the US premium (overlay `is_us_company` split within the North America group).
+- **Salary by job family** — horizontal bar chart ranking the six job families (Analytics, Data Science, Data Engineering, ML/AI, Leadership, Other) by median salary.
+- **Remote ratio vs salary** — strip or box plot showing how on-site / hybrid / remote affects compensation, optionally faceted by experience level.
+- **Year-over-year salary trend** — line chart of median salary per `work_year` (2020–2022 from training data, plus predicted salaries for later years) with a clear annotation where training data ends and extrapolation begins.
+- **Company size vs salary** — small / medium / large comparison, ideally as a stacked density or box plot.
+- **Cross-tab heatmap** — experience level × region grid coloured by median salary. Gives a quick "where's the money" overview in one glance.
+- **Prediction volume over time** — time-series of prediction count per day/week from Supabase, showing usage trends and helping spot data freshness issues.
