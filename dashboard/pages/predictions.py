@@ -246,14 +246,22 @@ if st.session_state.step == 5:
             result = response.json()
         except httpx.HTTPStatusError as exc:
             salary_bar.empty()
+            url = f"{settings.api_base_url}/api/v1/predict"
             if exc.response.status_code == 422:
                 st.error(f"Validation error — check your inputs. ({exc.response.text})")
             else:
-                st.error(f"Server error {exc.response.status_code}: {exc.response.text}")
+                st.error(
+                    f"API error {exc.response.status_code} from `{url}`: "
+                    f"{exc.response.text}"
+                )
             st.stop()
         except httpx.RequestError as exc:
             salary_bar.empty()
-            st.error(f"Could not reach the API. Is it running? ({exc})")
+            url = f"{settings.api_base_url}/api/v1/predict"
+            st.error(
+                f"Could not reach the API at `{url}`. "
+                f"Is it running? ({exc})"
+            )
             st.stop()
         except ValueError as exc:
             salary_bar.empty()

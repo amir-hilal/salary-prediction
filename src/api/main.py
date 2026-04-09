@@ -91,6 +91,12 @@ app.add_middleware(
 app.include_router(prediction.router)
 
 
+@app.get("/")
+async def root() -> dict:
+    """Root endpoint — confirms the API is reachable."""
+    return {"status": "ok", "docs": "/docs"}
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error(
