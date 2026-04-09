@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_anon_key: str
     supabase_service_role_key: str = ""
+    supabase_storage_bucket: str = "models"
 
     # Dashboard → API
     api_base_url: str

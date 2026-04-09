@@ -32,20 +32,5 @@ services:
       timeout: 5s
       retries: 5
 
-  dashboard:
-    build:
-      context: ../../
-      dockerfile: deployment/docker/Dockerfile.dashboard
-    container_name: salary-dashboard
-    ports:
-      - "8501:8501"
-    env_file:
-      - ../../.env
-    environment:
-      - API_BASE_URL=http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
-
 volumes:
   ollama_data:

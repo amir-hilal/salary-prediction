@@ -1,8 +1,10 @@
+import io
 import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+import joblib
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
@@ -22,8 +24,54 @@ class PredictionResult:
     range_high: float
 
 
+def _load_pipeline_from_supabase() -> tuple[Pipeline, dict[int, tuple[float, float]]]:
+    """Download registry + artifact from Supabase Storage and load into memory.
+
+    Expects two objects in the ``models`` bucket:
+      - ``latest.json``   — registry metadata (path field used as object key)
+      - ``<artifact>.joblib`` — the serialised pipeline
+
+    Raises:
+        RuntimeError: if the download fails or the bucket is unreachable.
+    """
+    from supabase import create_client  # noqa: PLC0415
+
+    client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+    bucket = settings.supabase_storage_bucket
+
+    logger.info("predict | downloading registry from supabase storage (bucket=%s)", bucket)
+    try:
+        registry_bytes: bytes = client.storage.from_(bucket).download("latest.json")
+        entry = json.loads(registry_bytes)
+
+        # The artifact path stored in the registry is e.g.
+        # "models/artifacts/decision_tree_20260407_172358.joblib".
+        # In storage we keep just the filename.
+        artifact_key = Path(entry["path"]).name
+        logger.info(
+            "predict | downloading artifact %s (trained %s)",
+            artifact_key,
+            entry["timestamp"],
+        )
+        artifact_bytes: bytes = client.storage.from_(bucket).download(artifact_key)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load model from Supabase Storage: {exc}") from exc
+
+    artifact = joblib.load(io.BytesIO(artifact_bytes))
+    if isinstance(artifact, dict):
+        pipeline: Pipeline = artifact["pipeline"]
+        leaf_ranges: dict[int, tuple[float, float]] = artifact["leaf_ranges"]
+    else:
+        pipeline = artifact
+        leaf_ranges = {}
+        logger.warning("predict | legacy artifact loaded from storage; leaf ranges unavailable")
+
+    logger.info("predict | model loaded from supabase storage | artifact=%s", artifact_key)
+    return pipeline, leaf_ranges
+
+
 def _load_pipeline_from_registry() -> tuple[Pipeline, dict[int, tuple[float, float]]]:
-    """Read models/registry/latest.json and load the referenced artifact."""
+    """Read models/registry/latest.json and load the referenced artifact from disk."""
     registry_path = settings.models_registry_path / "latest.json"
     if not registry_path.exists():
         raise FileNotFoundError(
@@ -49,7 +97,12 @@ _leaf_ranges: dict[int, tuple[float, float]] | None = None
 def _get_pipeline() -> tuple[Pipeline, dict[int, tuple[float, float]]]:
     global _pipeline, _leaf_ranges
     if _pipeline is None:
-        _pipeline, _leaf_ranges = _load_pipeline_from_registry()
+        registry_path = settings.models_registry_path / "latest.json"
+        if registry_path.exists():
+            _pipeline, _leaf_ranges = _load_pipeline_from_registry()
+        else:
+            logger.info("predict | local registry not found — loading from Supabase Storage")
+            _pipeline, _leaf_ranges = _load_pipeline_from_supabase()
     return _pipeline, _leaf_ranges or {}
 
 
