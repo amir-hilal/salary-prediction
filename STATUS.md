@@ -151,12 +151,12 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `tests/test_data/test_ingestion.py` | ⬜ | load_raw() with dirty fixture |
+| `tests/test_data/test_ingestion.py` | N/A | Data processing is in-memory; no file I/O to test |
 | `tests/test_data/test_cleaning.py` | ✅ | 12 tests — leakage drops, IQR cap, no-mutation, idempotency |
 | `tests/test_data/test_engineering.py` | ✅ | 35 tests — job_family (11 titles), location_region (8 countries), ordinal encoding, build_features |
 | `tests/test_models/test_train.py` | ✅ | 14 tests — pipeline shape, leaf ranges (coverage, Q25≤Q75), save/load roundtrip with range preservation |
 | `tests/test_api/test_prediction.py` | ✅ | 16 tests — happy path, range fields, 4× 422 validation, 2× 500 safe message, health check |
-| `tests/test_llm/test_narrative.py` | ⬜ | Mocked Ollama client, parse_narrative() |
+| `tests/test_llm/test_narrative.py` | ✅ | 22 tests — build_prompt (5), parse_narrative (10), generate_narrative (3), generate_narrative_stream (4) |
 
 ---
 
