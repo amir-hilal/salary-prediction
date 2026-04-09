@@ -93,11 +93,25 @@ Expected output — tables: `narratives`, `predictions`. RLS: `rowsecurity = tru
 ## 6. Enable Realtime (if not automatic)
 
 The SQL script runs `ALTER PUBLICATION supabase_realtime ADD TABLE ...` which should
-enable realtime for both tables. To verify:
+enable realtime for both tables. First, verify the publication actually has the tables:
 
-1. In the left sidebar go to **Database → Replication**.
-2. Under **supabase_realtime**, confirm `predictions` and `narratives` are listed.
-3. If not, click the toggle next to each table name to enable it.
+```sql
+SELECT pubname, tablename
+FROM pg_publication_tables
+WHERE pubname = 'supabase_realtime';
+```
+
+Expected output: two rows — one for `predictions`, one for `narratives`.
+
+If the query returns nothing, run the statements manually:
+
+```sql
+alter publication supabase_realtime add table public.predictions;
+alter publication supabase_realtime add table public.narratives;
+```
+
+To verify via the UI: go to **Database → Publications** in the left sidebar, click
+`supabase_realtime`, and confirm `predictions` and `narratives` are listed.
 
 ---
 
