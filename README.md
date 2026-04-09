@@ -125,6 +125,7 @@ curl http://localhost:8000/api/v1/health
 | `make dashboard` | Start Streamlit dashboard (port 8501) |
 | `make test` | Run the full test suite |
 | `make lint` | Run ruff + mypy |
+| `make upload-model` | Upload trained model artifact to Supabase |
 | `make docker-up` | Spin up the full stack via Docker Compose |
 | `make docker-down` | Stop the Docker Compose stack |
 | `make clean` | Remove caches and generated artifacts |
