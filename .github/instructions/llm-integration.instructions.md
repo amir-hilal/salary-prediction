@@ -9,7 +9,10 @@ applyTo: "src/llm/**,tests/test_llm/**"
 - Communicate with Ollama via its HTTP REST API (`/api/generate` or `/api/chat`)
 - Read `OLLAMA_BASE_URL` and `OLLAMA_MODEL` from `config/settings.py` — never hardcode
 - Use `httpx.AsyncClient` with a configurable timeout (default 120s — LLMs are slow)
-- Implement a `generate(prompt: str) -> str` async function as the single entry point
+- Two entry points — keep both; never remove `generate()` as tests depend on it:
+  - `generate(prompt: str) -> str` — single blocking call (`stream: False`); used by non-streaming callers and tests
+  - `generate_stream(prompt: str) -> AsyncGenerator[str, None]` — streaming call (`stream: True`); yields one token string per chunk from Ollama's newline-delimited JSON; raises `OllamaError` on the same failure modes
+- `generate_stream` uses `client.stream("POST", ...)` (httpx async streaming context); each line is a JSON object `{"response": "token", "done": false}`; stop iterating when `done == True`
 - Handle HTTP errors and timeouts explicitly; raise a custom `OllamaError` with a safe message
 - Log the model name and prompt length at DEBUG; never log the full prompt in production
 
@@ -51,6 +54,16 @@ data_key: <key name the dashboard will look up from Supabase>
 - `NarrativeResult`: `summary: str`, `insights: list[str]`, `chart_spec: ChartSpec`, `recommendation: str`
 - Use regex or a simple state machine — do not call the LLM a second time to fix malformed output
 - If the `[CHART]` block is missing or malformed, log a WARNING and use a sensible default chart spec
+
+## Streaming Narrative Entry Point (`src/llm/narrative.py`)
+- `generate_narrative_stream(prediction_context: dict) -> AsyncGenerator[str, None]`
+  - Calls `build_prompt(prediction_context)` (reuse existing, no changes needed)
+  - Yields raw token strings from `generate_stream(prompt)`
+  - Accumulates the full text internally as tokens arrive
+  - After the generator is exhausted (all tokens yielded), calls `parse_narrative(full_text)` and `insert_narrative()` to persist the result to Supabase
+  - On `OllamaError`, yields a single error sentinel token `"[ERROR] Narrative generation failed."` and returns — never raises from the generator
+- Keep `generate_narrative()` (the non-streaming version) untouched — it is used by existing tests
+- Persistence from within the generator avoids a second Supabase round-trip and ensures the narrative is stored exactly once per stream
 
 ## General Rules
 - All Ollama calls are async; do not use `asyncio.run()` inside library code

@@ -179,3 +179,46 @@ def get_recent_narratives(limit: int = 50) -> list[NarrativeRecord]:
         raise
     return [NarrativeRecord(**row) for row in response.data]
 
+
+def get_prediction_context(prediction_id: str) -> dict | None:
+    """Return a prediction_context dict suitable for ``generate_narrative_stream``.
+
+    Fetches the prediction row and re-assembles the context dict that was
+    originally built in the route layer.  Returns ``None`` if the prediction
+    does not exist.
+
+    The returned dict includes ``prediction_id`` so the stream generator can
+    persist the narrative after all tokens are yielded.
+
+    Raises:
+        Exception: propagates Supabase network or auth errors to the caller.
+    """
+    try:
+        response = (
+            get_anon_client()
+            .table("predictions")
+            .select("id, features, predicted_salary, salary_range_low, salary_range_high, model_version, currency")
+            .eq("id", prediction_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error(
+            "get_prediction_context failed: prediction_id=%s %s", prediction_id, exc
+        )
+        raise
+
+    if not response.data:
+        return None
+
+    row = response.data[0]
+    return {
+        "prediction_id": row["id"],
+        "point_estimate": float(row["predicted_salary"]),
+        "range_low": float(row["salary_range_low"] or row["predicted_salary"]),
+        "range_high": float(row["salary_range_high"] or row["predicted_salary"]),
+        "currency": row.get("currency", "USD"),
+        "model_mae": 0.0,  # re-injected by the route from app.state
+        "features": row.get("features", {}),
+    }
+

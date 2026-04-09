@@ -33,7 +33,7 @@
 | File | Status | Notes |
 |------|--------|-------|
 | `src/api/schemas/salary.py` | ✅ | PredictionRequest (8 fields, validated), PredictionResponse (point + range), ErrorResponse |
-| `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict returns point_estimate + salary_range_low/high; BackgroundTask for DB insert |
+| `src/api/routes/prediction.py` | ✅ | POST /api/v1/predict returns point_estimate + salary_range_low/high; BackgroundTask for DB insert; GET /api/v1/predict/{id}/narrative SSE streaming endpoint |
 | `src/api/main.py` | ✅ | Lifespan (warms model singleton), CORS, global 500 handler, logging |
 
 ### Sample `/predict` Request Body
@@ -110,8 +110,8 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/llm/ollama_client.py` | ✅ | httpx async client, generate(), OllamaError; reads ollama_base_url/model/timeout from settings |
-| `src/llm/narrative.py` | ✅ | build_prompt() injects point_estimate/range/MAE; parse_narrative() → NarrativeResult + ChartSpec; generate_narrative() entry point |
+| `src/llm/ollama_client.py` | ✅ | httpx async client, generate() + generate_stream() (SSE); OllamaError; reads ollama_base_url/model/timeout from settings |
+| `src/llm/narrative.py` | ✅ | build_prompt() injects point_estimate/range/MAE; parse_narrative() → NarrativeResult + ChartSpec; generate_narrative() (blocking) + generate_narrative_stream() (SSE, persists on stream end) |
 | `phi4-mini` model | ✅ | Pulled and ready — 2.5 GB, default model in settings.py and .env.example |
 
 ---
@@ -130,7 +130,7 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 |------|--------|-------|
 | `deployment/scripts/setup_supabase.sql` | ✅ | predictions + narratives tables, RLS policies (anon read / service insert), realtime publication, indexes |
 | `src/database/client.py` | ✅ | Lazy singleton via get_client(); uses service-role key from settings |
-| `src/database/crud.py` | ✅ | insert_prediction(), insert_narrative(), get_recent_predictions(), get_narrative_for_prediction(); PredictionRecord + NarrativeRecord Pydantic models |
+| `src/database/crud.py` | ✅ | insert_prediction(), insert_narrative(), get_recent_predictions(), get_narrative_for_prediction(), get_recent_narratives(), get_prediction_context(); PredictionRecord + NarrativeRecord Pydantic models |
 
 ---
 
@@ -142,7 +142,7 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 | `dashboard/components/filters.py` | ✅ | FilterState Pydantic model, render_sidebar_filters() |
 | `dashboard/components/charts.py` | ✅ | Plotly wrappers with error handling, render_chart_from_spec() |
 | `dashboard/pages/overview.py` | ✅ | Salary landscape, metrics, histogram, auto-refresh every 30 s |
-| `dashboard/pages/predictions.py` | ✅ | Prediction form → API call → salary metrics + LLM narrative + chart |
+| `dashboard/pages/predictions.py` | ✅ | Prediction form → API call → salary metrics + SSE streaming narrative (token-by-token) + structured display + chart |
 | `dashboard/pages/insights.py` | ✅ | Narrative list, sidebar filters, filtered histogram, feature importance |
 
 ---

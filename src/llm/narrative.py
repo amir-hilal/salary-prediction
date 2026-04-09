@@ -1,9 +1,10 @@
 import logging
 import re
+from collections.abc import AsyncGenerator
 
 from pydantic import BaseModel
 
-from src.llm.ollama_client import OllamaError, generate
+from src.llm.ollama_client import OllamaError, generate, generate_stream
 
 logger = logging.getLogger(__name__)
 
@@ -255,3 +256,54 @@ async def generate_narrative(prediction_context: dict) -> tuple[NarrativeResult,
         len(raw),
     )
     return parse_narrative(raw), raw
+
+
+async def generate_narrative_stream(
+    prediction_context: dict,
+) -> AsyncGenerator[str, None]:
+    """Build the prompt, stream tokens from Ollama, and persist the result.
+
+    Yields one token string at a time as they arrive from Ollama.  After the
+    stream is exhausted the full text is parsed and persisted to Supabase.
+    On ``OllamaError`` a single ``[ERROR]`` sentinel token is yielded instead
+    of raising — callers must check for it.
+
+    prediction_context must contain the same keys as ``generate_narrative``.
+
+    Yields:
+        Token strings from Ollama, then (internally) persists to Supabase.
+    """
+    # Import here to avoid circular dependency at module load time and to
+    # match the pattern used elsewhere in the route layer.
+    from src.database.crud import insert_narrative  # noqa: PLC0415
+
+    prompt = build_prompt(prediction_context)
+    full_text: list[str] = []
+
+    try:
+        async for token in generate_stream(prompt):
+            full_text.append(token)
+            yield token
+    except OllamaError as exc:
+        logger.warning("generate_narrative_stream | OllamaError: %s", exc)
+        yield f"[ERROR] {exc}"
+        return
+
+    raw = "".join(full_text)
+    logger.info("generate_narrative_stream | stream complete | length=%d", len(raw))
+
+    try:
+        narrative = parse_narrative(raw)
+        prediction_id: str = prediction_context["prediction_id"]
+        await insert_narrative(
+            prediction_id=prediction_id,
+            narrative=narrative,
+            raw_response=raw,
+        )
+        logger.info(
+            "generate_narrative_stream | persisted | prediction_id=%s", prediction_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "generate_narrative_stream | persist failed | error=%s", exc
+        )

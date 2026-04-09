@@ -21,8 +21,13 @@ applyTo: "dashboard/**"
 ### `predictions.py` — Prediction Explorer
 - Interactive form: user inputs candidate features, calls the FastAPI `POST /predict` endpoint
 - Displays the returned `predicted_salary` with confidence context
-- Shows the LLM narrative (summary, insights, recommendation) fetched from `narratives` table
+- After receiving `prediction_id`, opens a **streaming** `httpx` GET to `GET /api/v1/predict/{prediction_id}/narrative`
+  - Uses `httpx.Client` with `stream=True`; accumulates tokens and calls `placeholder.markdown(accumulated_text)` on each chunk so the narrative appears word-by-word
+  - Stops when the `data: [DONE]` SSE sentinel is received
+  - After the stream closes, calls `get_narrative_for_prediction(prediction_id)` **once** to fetch the fully parsed `NarrativeResult` from Supabase (needed for `chart_spec`)
 - Renders the chart specified in `chart_spec` using `src/visualizations/charts.py`
+- Do **not** use the polling loop (`for attempt in range(N): time.sleep(5)`) — replaced by SSE streaming
+- Handle `[ERROR]` sentinel token gracefully: show `st.error()` and skip chart rendering
 
 ### `insights.py` — Narrative & Charts
 - List view of recent narratives with expandable detail
@@ -48,8 +53,10 @@ applyTo: "dashboard/**"
 
 ## API Calls (from Dashboard to FastAPI)
 - Read `API_BASE_URL` from `config/settings.py` — never hardcode in dashboard pages
-- Use `httpx` (sync) for the predict call from the form; show a spinner with `st.spinner()`
+- Use `httpx` (sync) for the `POST /predict` call from the form; show a spinner with `st.spinner()`
+- Use `httpx.Client` with `stream=True` for the `GET /predict/{id}/narrative` SSE endpoint; iterate over `response.iter_lines()` and update the placeholder on each token
 - Handle `422` (validation error) and `500` (server error) gracefully with `st.error()`
+- Handle `[ERROR]` SSE sentinel and `httpx.RequestError` from the streaming call with `st.error()`
 
 ## General Rules
 - No business logic in dashboard pages — only presentation and user interaction

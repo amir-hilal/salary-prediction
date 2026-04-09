@@ -4,16 +4,17 @@ Users fill in candidate features, call the FastAPI /predict endpoint, and see
 the returned salary estimate alongside the LLM-generated narrative and chart.
 """
 
-import time
+import logging
 
 import httpx
 import streamlit as st
 
 from config.settings import settings
-from src.database.crud import get_narrative_for_prediction
+from src.database.crud import get_narrative_for_prediction, get_recent_predictions
 from dashboard.components.charts import render_chart_from_spec
-from src.database.crud import get_recent_predictions
-from src.llm.narrative import ChartSpec, NarrativeRecord
+from src.llm.narrative import ChartSpec
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Prediction Explorer", layout="wide")
 
@@ -140,32 +141,57 @@ if submitted:
     st.caption(f"Model version: `{result['model_version']}` | Prediction ID: `{prediction_id}`")
 
     # -----------------------------------------------------------------------
-    # LLM Narrative — poll until ready (max 90 s)
+    # LLM Narrative — streamed token by token via SSE
     # -----------------------------------------------------------------------
 
     st.subheader("AI Narrative")
     narrative_placeholder = st.empty()
+    stream_error = False
+
+    try:
+        with httpx.Client(timeout=None) as client:
+            with client.stream(
+                "GET",
+                f"{settings.api_base_url}/api/v1/predict/{prediction_id}/narrative",
+            ) as stream_response:
+                stream_response.raise_for_status()
+                accumulated = ""
+                for line in stream_response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    token = line[len("data: "):]
+                    if token == "[DONE]":
+                        break
+                    if token.startswith("[ERROR]"):
+                        narrative_placeholder.error(
+                            f"Narrative generation failed: {token[len('[ERROR] '):]}"
+                        )
+                        stream_error = True
+                        break
+                    # Unescape newlines that were escaped for SSE transport.
+                    accumulated += token.replace("\\n", "\n")
+                    narrative_placeholder.markdown(accumulated)
+    except httpx.RequestError as exc:
+        narrative_placeholder.error(
+            f"Could not connect to the narrative stream. Is the API running? ({exc})"
+        )
+        stream_error = True
+
+    if stream_error:
+        st.stop()
+
+    # -----------------------------------------------------------------------
+    # Structured display (parsed NarrativeResult) + chart
+    # After the stream the narrative is stored in Supabase; fetch it once.
+    # -----------------------------------------------------------------------
 
     narrative = None
-    for attempt in range(18):  # 18 × 5 s = 90 s max
-        try:
-            narrative = get_narrative_for_prediction(prediction_id)
-        except Exception as exc:
-            narrative_placeholder.error(f"Error fetching narrative: {exc}")
-            break
-        if narrative:
-            break
-        narrative_placeholder.info(
-            f"Generating narrative… ({attempt * 5} s elapsed)"
-        )
-        time.sleep(5)
+    try:
+        narrative = get_narrative_for_prediction(prediction_id)
+    except Exception as exc:
+        logger.warning("Could not fetch narrative record after stream: %s", exc)
 
-    if narrative is None:
-        narrative_placeholder.warning(
-            "The narrative is still being generated.  "
-            "Refresh this page in a moment to see it."
-        )
-    else:
+    if narrative is not None:
         narrative_placeholder.empty()
 
         with st.container():
@@ -185,7 +211,11 @@ if submitted:
 
         st.subheader("Chart")
         recent_records = [r.model_dump() for r in get_recent_predictions(limit=200)]
-        chart_spec = ChartSpec(**narrative.chart_spec) if isinstance(narrative.chart_spec, dict) else narrative.chart_spec
+        chart_spec = (
+            ChartSpec(**narrative.chart_spec)
+            if isinstance(narrative.chart_spec, dict)
+            else narrative.chart_spec
+        )
         render_chart_from_spec(
             chart_spec,
             recent_records,
