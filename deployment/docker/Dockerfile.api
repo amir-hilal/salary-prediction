@@ -1,0 +1,21 @@
+FROM python:3.12-slim AS base
+
+WORKDIR /app
+
+# Install only runtime dependencies (no dev/test packages)
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    $(grep -E '^(pandas|numpy|scikit-learn|joblib|fastapi|uvicorn|pydantic|httpx|supabase|plotly|pydantic-settings|PyYAML)' requirements.txt | tr '\n' ' ')
+
+# Copy application code and artifacts
+COPY config/ config/
+COPY src/ src/
+COPY models/ models/
+COPY data/raw/ data/raw/
+
+# Copy env example as fallback (real .env is mounted or env vars are injected)
+COPY .env.example .env.example
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

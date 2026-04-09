@@ -164,10 +164,10 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `deployment/docker/Dockerfile.api` | ⬜ | |
-| `deployment/docker/Dockerfile.dashboard` | ⬜ | |
-| `deployment/docker/docker-compose.yml` | ⬜ | API + dashboard + Ollama |
-| `.env.example` | ⬜ | All required env vars documented |
+| `deployment/docker/Dockerfile.api` | ✅ | Python 3.12-slim, runtime deps only, exposes 8000 |
+| `deployment/docker/Dockerfile.dashboard` | ✅ | Python 3.12-slim, PYTHONPATH set, exposes 8501 |
+| `deployment/docker/docker-compose.yml` | ✅ | API + dashboard + Ollama; health checks, inter-service networking |
+| `.env.example` | ✅ | All required env vars documented |
 
 ---
 
@@ -185,3 +185,23 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 | Salary output | Point estimate + Q25–Q75 leaf range | A single prediction number is misleading; ranges reflect real variation among comparable training samples |
 | Range method | Decision Tree leaf node IQR | Each leaf groups samples with the same decision path — their Q25/Q75 is the most honest range; no extra model needed |
 | Leaf count | 27 (max_depth=5, best from GridSearchCV) | Depth controls range width — deeper = tighter but noisier; 5 balances interpretability and specificity |
+
+---
+
+## Known Issues & UI/UX Improvements
+
+### Model
+- R² = 0.453 — the model only explains ~45% of salary variance. The remaining 55% is driven by factors outside the dataset (negotiation skill, company brand, niche specialisations, stock/bonus, etc.). This is an inherent limitation of the feature set, not a code bug.
+
+### Dashboard — General
+- The landing page (Overview) is generic — it should clearly communicate what this application does, who it's for, and how to use it before the user starts exploring.
+
+### Dashboard — Prediction Form
+- The form currently shows all 8 inputs at once in two columns. It should be reworked into a **stepper** (one input per step) so the user can focus on a single choice at a time.
+- **Conditional logic missing**: if the user selects a region other than North America, `is_us_company` should automatically default to `0` (Non-US) and be hidden or disabled — a non-North-America US company is contradictory.
+- **Work year** should default to `2026` (the current year) instead of requiring manual entry. A disclaimer should be shown: _"This model was trained on salary data from 2020, 2021, and 2022. Predictions for other years are extrapolated and may be less reliable."_
+
+### Dashboard — Prediction Results
+- After clicking **Predict**, the results page should show the user's selected inputs as a compact header at the top (not the raw form).
+- The rest of the screen should be a clean canvas for the streaming narrative. During loading, show staged status messages: _"Predicting…"_ (while waiting for the API response) → _"Thinking…"_ (while the LLM narrative streams in).
+- The current layout mixes metrics, narrative text, and charts in a cluttered single column — needs visual hierarchy.
