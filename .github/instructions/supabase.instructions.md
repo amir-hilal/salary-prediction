@@ -27,9 +27,10 @@ All tables live in the `public` schema. Core tables:
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | `uuid` | Primary key |
-| `prediction_id` | `uuid` | FK → `predictions.id` |
+| `prediction_id` | `uuid` | FK → `predictions.id` (UNIQUE — one narrative per prediction) |
 | `created_at` | `timestamptz` | |
 | `summary` | `text` | LLM executive summary |
+| `uncertainty` | `text` | **Mandatory** — states point estimate, peer range, and model MAE |
 | `insights` | `jsonb` | Array of insight strings |
 | `recommendation` | `text` | |
 | `chart_spec` | `jsonb` | Parsed `ChartSpec` |
@@ -38,12 +39,14 @@ All tables live in the `public` schema. Core tables:
 ## CRUD Patterns (`src/database/crud.py`)
 - Every write function returns the inserted record — do not query immediately after insert
 - Use typed return values: define Pydantic models for each table row
+- **Writes are `async`** — use `get_client()` (service-role, async) and `await` all calls
+- **Reads are synchronous** — use `get_anon_client()` (anon key, sync) for dashboard queries
 - Function signatures:
-  - `insert_prediction(features: dict, salary: float, model_version: str) -> PredictionRecord`
-  - `insert_narrative(prediction_id: str, narrative: NarrativeResult) -> NarrativeRecord`
+  - `async insert_prediction(*, prediction_id, features, salary, ...) -> PredictionRecord`
+  - `async insert_narrative(*, prediction_id, narrative, raw_response) -> NarrativeRecord`
   - `get_recent_predictions(limit: int = 100) -> list[PredictionRecord]`
   - `get_narrative_for_prediction(prediction_id: str) -> NarrativeRecord | None`
-- All functions are `async` — use `await` on the supabase-py async client calls
+- `insert_narrative` uses upsert on `prediction_id` — retries are idempotent
 
 ## Realtime (Dashboard)
 - Subscribe to the `predictions` table channel for INSERT events in the Streamlit dashboard

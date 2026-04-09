@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["prediction"])
 
 
-def _persist_prediction(
+async def _persist_prediction(
     prediction_id: str,
     features: dict,
     predicted_salary: float,
@@ -23,7 +24,7 @@ def _persist_prediction(
     try:
         from src.database.crud import insert_prediction  # noqa: PLC0415
 
-        insert_prediction(
+        await insert_prediction(
             prediction_id=prediction_id,
             features=features,
             predicted_salary=predicted_salary,

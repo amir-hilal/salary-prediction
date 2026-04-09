@@ -42,6 +42,25 @@ create table if not exists public.narratives (
 create index if not exists narratives_prediction_id_idx
     on public.narratives (prediction_id);
 
+-- Enforce one narrative per prediction (prevents silent duplicates on retry)
+alter table public.narratives
+    add constraint narratives_prediction_id_unique unique (prediction_id);
+
+-- Ensure salary range is either both NULL or both non-NULL and correctly ordered
+alter table public.predictions
+    add constraint salary_range_consistent check (
+        (salary_range_low is null and salary_range_high is null)
+        or (
+            salary_range_low is not null
+            and salary_range_high is not null
+            and salary_range_low <= salary_range_high
+        )
+    );
+
+-- Pre-emptive GIN index for future JSONB feature filtering from the dashboard
+create index if not exists predictions_features_gin
+    on public.predictions using gin (features);
+
 -- ---------------------------------------------------------------------------
 -- Row Level Security
 -- Anon key: read only.
@@ -60,6 +79,15 @@ create policy "predictions: service insert"
     on public.predictions for insert
     with check (true);
 
+-- Allow the service role to update and delete predictions
+create policy "predictions: service update"
+    on public.predictions for update
+    using (true) with check (true);
+
+create policy "predictions: service delete"
+    on public.predictions for delete
+    using (true);
+
 -- Allow anyone with the anon key to read narratives (dashboard)
 create policy "narratives: anon read"
     on public.narratives for select
@@ -69,6 +97,15 @@ create policy "narratives: anon read"
 create policy "narratives: service insert"
     on public.narratives for insert
     with check (true);
+
+-- Allow the service role to update and delete narratives
+create policy "narratives: service update"
+    on public.narratives for update
+    using (true) with check (true);
+
+create policy "narratives: service delete"
+    on public.narratives for delete
+    using (true);
 
 -- ---------------------------------------------------------------------------
 -- Realtime
