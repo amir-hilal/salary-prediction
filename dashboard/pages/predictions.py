@@ -104,7 +104,11 @@ if submitted:
                 timeout=30.0,
             )
             response.raise_for_status()
-            result = response.json()
+            try:
+                result = response.json()
+            except ValueError as json_exc:
+                st.error(f"API returned invalid JSON: {json_exc}")
+                st.stop()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 422:
                 st.error(f"Validation error — check your inputs. ({exc.response.text})")
@@ -115,7 +119,13 @@ if submitted:
             st.error(f"Could not reach the API at {settings.api_base_url}. Is it running?  ({exc})")
             st.stop()
 
+    if "salary" not in result or "prediction_id" not in result:
+        st.error("API returned an unexpected response structure. Please try again.")
+        st.stop()
     salary = result["salary"]
+    if not isinstance(salary, dict) or not {"mean", "low", "high"}.issubset(salary):
+        st.error("Salary data is incomplete. Please try again.")
+        st.stop()
     prediction_id: str = result["prediction_id"]
 
     # -----------------------------------------------------------------------
@@ -138,7 +148,11 @@ if submitted:
 
     narrative = None
     for attempt in range(18):  # 18 × 5 s = 90 s max
-        narrative = get_narrative_for_prediction(prediction_id)
+        try:
+            narrative = get_narrative_for_prediction(prediction_id)
+        except Exception as exc:
+            narrative_placeholder.error(f"Error fetching narrative: {exc}")
+            break
         if narrative:
             break
         narrative_placeholder.info(

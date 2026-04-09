@@ -1,7 +1,11 @@
 """Streamlit chart wrappers around src/visualizations/charts.py."""
 
+import logging
+
 import streamlit as st
 from plotly.graph_objects import Figure
+
+logger = logging.getLogger(__name__)
 
 from src.llm.narrative import ChartSpec
 from src.visualizations.charts import (
@@ -40,10 +44,14 @@ def render_chart_from_spec(
     importances: dict[str, float] | None = None,
 ) -> None:
     """Dispatch to the right chart type and render it using the LLM ChartSpec."""
-    fig: Figure = from_chart_spec(
-        spec,
-        records,
-        point_estimate=point_estimate,
-        importances=importances,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    try:
+        fig: Figure = from_chart_spec(
+            spec,
+            records,
+            point_estimate=point_estimate,
+            importances=importances,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as exc:
+        logger.exception("render_chart_from_spec failed")
+        st.error(f"Could not render chart: {exc}")

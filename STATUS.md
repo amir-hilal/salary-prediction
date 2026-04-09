@@ -120,7 +120,7 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `src/visualizations/charts.py` | ⬜ | salary_histogram(), predicted_vs_actual_scatter(), feature_importance_bar() |
+| `src/visualizations/charts.py` | ✅ | salary_histogram(), predicted_vs_actual_scatter(), feature_importance_bar(), from_chart_spec() dispatch |
 
 ---
 
@@ -138,12 +138,12 @@ With `max_depth=5`, the current model produces **27 leaf nodes**. Wider leaves (
 
 | File | Status | Notes |
 |------|--------|-------|
-| `dashboard/app.py` | ⬜ | Entry point, session_state init, Supabase client |
-| `dashboard/components/filters.py` | ⬜ | render_sidebar_filters() → FilterState |
-| `dashboard/components/charts.py` | ⬜ | Plotly wrappers consuming ChartSpec |
-| `dashboard/pages/overview.py` | ⬜ | Salary landscape, auto-refresh |
-| `dashboard/pages/predictions.py` | ⬜ | Prediction form, LLM narrative display |
-| `dashboard/pages/insights.py` | ⬜ | Narrative list, comparative chart |
+| `dashboard/app.py` | ✅ | Entry point, session_state init, Supabase client |
+| `dashboard/components/filters.py` | ✅ | FilterState Pydantic model, render_sidebar_filters() |
+| `dashboard/components/charts.py` | ✅ | Plotly wrappers with error handling, render_chart_from_spec() |
+| `dashboard/pages/overview.py` | ✅ | Salary landscape, metrics, histogram, auto-refresh every 30 s |
+| `dashboard/pages/predictions.py` | ✅ | Prediction form → API call → salary metrics + LLM narrative + chart |
+| `dashboard/pages/insights.py` | ✅ | Narrative list, sidebar filters, filtered histogram, feature importance |
 
 ---
 

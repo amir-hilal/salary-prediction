@@ -116,42 +116,66 @@ async def insert_narrative(
 # ---------------------------------------------------------------------------
 
 def get_recent_predictions(limit: int = 100) -> list[PredictionRecord]:
-    """Return the most recent predictions ordered by created_at descending."""
-    response = (
-        get_anon_client()
-        .table("predictions")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    """Return the most recent predictions ordered by created_at descending.
+
+    Raises:
+        Exception: propagates Supabase network or auth errors to the caller.
+    """
+    try:
+        response = (
+            get_anon_client()
+            .table("predictions")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("get_recent_predictions failed: %s", exc)
+        raise
     return [PredictionRecord(**row) for row in response.data]
 
 
 def get_narrative_for_prediction(prediction_id: str) -> NarrativeRecord | None:
-    """Return the narrative for a given prediction, or None if not yet generated."""
-    response = (
-        get_anon_client()
-        .table("narratives")
-        .select("*")
-        .eq("prediction_id", prediction_id)
-        .limit(1)
-        .execute()
-    )
+    """Return the narrative for a given prediction, or None if not yet generated.
+
+    Raises:
+        Exception: propagates Supabase network or auth errors to the caller.
+    """
+    try:
+        response = (
+            get_anon_client()
+            .table("narratives")
+            .select("*")
+            .eq("prediction_id", prediction_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("get_narrative_for_prediction failed: prediction_id=%s %s", prediction_id, exc)
+        raise
     if not response.data:
         return None
     return NarrativeRecord(**response.data[0])
 
 
 def get_recent_narratives(limit: int = 50) -> list[NarrativeRecord]:
-    """Return the most recent narratives ordered by created_at descending."""
-    response = (
-        get_anon_client()
-        .table("narratives")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    """Return the most recent narratives ordered by created_at descending.
+
+    Raises:
+        Exception: propagates Supabase network or auth errors to the caller.
+    """
+    try:
+        response = (
+            get_anon_client()
+            .table("narratives")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("get_recent_narratives failed: %s", exc)
+        raise
     return [NarrativeRecord(**row) for row in response.data]
 

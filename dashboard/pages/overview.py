@@ -15,7 +15,11 @@ st.set_page_config(page_title="Salary Landscape", layout="wide")
 
 
 def _load_predictions() -> list[dict]:
-    records = get_recent_predictions(limit=500)
+    try:
+        records = get_recent_predictions(limit=500)
+    except Exception as exc:
+        st.error(f"Could not load predictions from Supabase: {exc}")
+        return []
     return [r.model_dump() for r in records]
 
 
@@ -76,7 +80,10 @@ with st.expander("Raw prediction data", expanded=False):
 # Auto-refresh loop
 # ---------------------------------------------------------------------------
 
-if auto_refresh:
+# Guard: only sleep when auto_refresh is on and no manual refresh just fired.
+# Without the guard every rerun (including the one triggered by st.rerun())
+# would re-enter the sleep and loop forever.
+if auto_refresh and not manual_refresh:
     time.sleep(30)
     st.session_state["overview_records"] = _load_predictions()
     st.rerun()

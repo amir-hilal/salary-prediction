@@ -5,6 +5,8 @@ The sidebar filters narrow the view by date, experience, region, and job family.
 A comparative chart at the bottom shows the filtered distribution.
 """
 
+from datetime import datetime
+
 import streamlit as st
 
 from src.database.crud import get_recent_narratives, get_recent_predictions
@@ -33,32 +35,56 @@ st.caption(
 # Load data
 # ---------------------------------------------------------------------------
 
-narratives = get_recent_narratives(limit=50)
-predictions_raw = get_recent_predictions(limit=500)
+try:
+    narratives = get_recent_narratives(limit=50)
+except Exception as exc:
+    st.error(f"Could not load narratives from Supabase: {exc}")
+    narratives = []
+
+try:
+    predictions_raw = get_recent_predictions(limit=500)
+except Exception as exc:
+    st.error(f"Could not load predictions from Supabase: {exc}")
+    predictions_raw = []
+
 all_records = [r.model_dump() for r in predictions_raw]
+
+
+def _parse_date(value: datetime | str | None):
+    """Return a date object regardless of whether value is a datetime or ISO string."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return datetime.fromisoformat(value).date()
+    if isinstance(value, datetime):
+        return value.date()
+    return None
 
 
 def _apply_filters(records: list[dict], f: FilterState) -> list[dict]:
     """Filter prediction records using the active FilterState."""
     out = records
     if f.date_from:
-        out = [r for r in out if r["created_at"].date() >= f.date_from]
+        out = [r for r in out if (d := _parse_date(r.get("created_at"))) and d >= f.date_from]
     if f.date_to:
-        out = [r for r in out if r["created_at"].date() <= f.date_to]
+        out = [r for r in out if (d := _parse_date(r.get("created_at"))) and d <= f.date_to]
     if f.experience_level is not None:
         out = [
             r for r in out
-            if r.get("features", {}).get("experience_level") in f.experience_level
+            if r.get("features", {}).get("experience_level") is not None
+            and r.get("features", {}).get("experience_level") in f.experience_level
         ]
     if f.location_region is not None:
         out = [
             r for r in out
-            if r.get("features", {}).get("location_region") in f.location_region
+            if r.get("features", {}).get("location_region") is not None
+            and r.get("features", {}).get("location_region") in f.location_region
         ]
     if f.job_family is not None:
         out = [
             r for r in out
-            if r.get("features", {}).get("job_family") in f.job_family
+            if r.get("features", {}).get("job_family") is not None
+            and r.get("features", {}).get("job_family") in f.job_family
         ]
     return out
 
