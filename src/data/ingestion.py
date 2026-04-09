@@ -51,7 +51,10 @@ def load_raw_from_supabase() -> pd.DataFrame:
 
     logger.info("load_raw | downloading ds_salaries.csv from Supabase Storage")
     try:
-        client = create_client(settings.supabase_url, settings.supabase_anon_key)
+        client = create_client(
+            settings.supabase_url,
+            settings.supabase_service_role_key or settings.supabase_anon_key,
+        )
         csv_bytes: bytes = client.storage.from_(settings.supabase_storage_bucket).download(
             "ds_salaries.csv"
         )
