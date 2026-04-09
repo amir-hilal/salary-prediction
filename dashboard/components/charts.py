@@ -25,6 +25,7 @@ from src.visualizations.eda import (
     salary_density_by_experience,
     salary_stacked_histogram_by_experience,
     salary_trend,
+    salary_us_vs_nonus,
 )
 
 
@@ -132,4 +133,10 @@ def render_salary_stacked_histogram_by_experience(df: pd.DataFrame) -> None:
     """Render stacked histogram of salary by experience level."""
     fig: Figure = salary_stacked_histogram_by_experience(df)
     st.plotly_chart(fig, use_container_width=True, key="chart_salary_stacked_histogram")
+
+
+def render_salary_us_vs_nonus(df: pd.DataFrame) -> None:
+    """Render overlapping histograms comparing US vs non-US company salaries."""
+    fig: Figure = salary_us_vs_nonus(df)
+    st.plotly_chart(fig, use_container_width=True, key="chart_salary_us_vs_nonus")
 

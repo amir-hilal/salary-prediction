@@ -367,3 +367,83 @@ def salary_stacked_histogram_by_experience(df: pd.DataFrame) -> Figure:
         "Salary (USD)",
         "Count",
     )
+
+
+# ---------------------------------------------------------------------------
+# salary_us_vs_nonus (overlapping histograms)
+# ---------------------------------------------------------------------------
+
+def salary_us_vs_nonus(df: pd.DataFrame) -> Figure:
+    """Overlapping histograms comparing salary distributions of US vs non-US companies.
+
+    Shows how much higher US-company salaries tend to be, with median annotations
+    for each group and a delta label highlighting the gap.
+    """
+    if df.empty:
+        logger.warning("salary_us_vs_nonus | empty DataFrame")
+        return go.Figure()
+
+    if "is_us_company" not in df.columns:
+        logger.warning("salary_us_vs_nonus | missing is_us_company column")
+        return go.Figure()
+
+    us_df = df[df["is_us_company"] == 1]["salary_in_usd"]
+    nonus_df = df[df["is_us_company"] == 0]["salary_in_usd"]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=nonus_df,
+            name=f"Non-US (n={len(nonus_df)})",
+            marker_color="#8e99a4",
+            opacity=0.7,
+            nbinsx=25,
+        )
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=us_df,
+            name=f"US (n={len(us_df)})",
+            marker_color=_BRAND_COLOR,
+            opacity=0.7,
+            nbinsx=25,
+        )
+    )
+    fig.update_layout(barmode="overlay")
+
+    # Median annotations
+    us_median = float(us_df.median()) if not us_df.empty else 0
+    nonus_median = float(nonus_df.median()) if not nonus_df.empty else 0
+    delta = us_median - nonus_median
+    pct = (delta / nonus_median * 100) if nonus_median else 0
+
+    for median_val, label, color in [
+        (nonus_median, "Non-US median", "#5a6370"),
+        (us_median, "US median", "#1a56db"),
+    ]:
+        fig.add_vline(
+            x=median_val,
+            line_dash="dash",
+            line_color=color,
+            annotation_text=f"{label}: ${median_val:,.0f}",
+            annotation_position="top",
+            annotation_font_color=color,
+        )
+
+    fig.add_annotation(
+        x=(us_median + nonus_median) / 2,
+        y=1.05,
+        yref="paper",
+        text=f"US pays +${delta:,.0f} ({pct:+.0f}%) more",
+        showarrow=False,
+        font={"size": 13, "color": "#1a56db", "family": "Inter, sans-serif"},
+        bgcolor="rgba(232,240,254,0.8)",
+        borderpad=4,
+    )
+
+    return _apply_defaults(
+        fig,
+        "US vs Non-US Company Salaries",
+        "Salary (USD)",
+        "Count",
+    )

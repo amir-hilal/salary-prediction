@@ -22,6 +22,7 @@ from dashboard.components.charts import (
     render_salary_density_by_experience,
     render_salary_stacked_histogram_by_experience,
     render_salary_trend,
+    render_salary_us_vs_nonus,
 )
 from src.database.crud import get_recent_narratives, get_recent_predictions
 
@@ -112,6 +113,14 @@ with tab_drivers:
 
     st.subheader("Median Salary by Job Family")
     render_salary_by_job_family(training_df)
+
+    st.divider()
+    st.subheader("US vs Non-US Company Salaries")
+    st.caption(
+        "US-based companies pay significantly more than non-US companies across all "
+        "roles. The overlapping histograms highlight the gap with median annotations."
+    )
+    render_salary_us_vs_nonus(training_df)
 
     st.divider()
     st.subheader("Training Data Density")
