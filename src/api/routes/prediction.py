@@ -154,7 +154,12 @@ async def predict_salary(
 async def health(request: Request) -> dict:
     """Return API liveness status and the currently loaded model version."""
     model_version: str = getattr(request.app.state, "model_version", "unknown")
-    return {"status": "ok", "model_version": model_version}
+    model_loaded: bool = getattr(request.app.state, "model_loaded", False)
+    return {
+        "status": "ok" if model_loaded else "degraded",
+        "model_version": model_version,
+        "model_loaded": model_loaded,
+    }
 
 
 @router.get(

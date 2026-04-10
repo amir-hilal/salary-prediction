@@ -68,16 +68,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     model_version = _read_model_version()
     app.state.model_version = model_version
     app.state.model_mae = _read_model_mae()
+    app.state.model_loaded = False
 
     # Eagerly warm the model singleton so the first request has no cold-start I/O.
-    from src.models.predict import _get_pipeline  # noqa: PLC0415
+    try:
+        from src.models.predict import _get_pipeline  # noqa: PLC0415
 
-    _get_pipeline()
-    logger.info(
-        "lifespan | startup complete | model_version=%s | model_mae=%.2f",
-        model_version,
-        app.state.model_mae,
-    )
+        _get_pipeline()
+        app.state.model_loaded = True
+        logger.info(
+            "lifespan | startup complete | model_version=%s | model_mae=%.2f",
+            model_version,
+            app.state.model_mae,
+        )
+    except Exception as exc:
+        logger.error("lifespan | model loading failed — app will start degraded: %s", exc)
 
     yield
 
@@ -102,6 +107,13 @@ app.add_middleware(
 )
 
 app.include_router(prediction.router)
+
+
+@app.get("/", include_in_schema=False)
+async def root(request: Request) -> dict:
+    """Root health check for platform probes (Koyeb, etc.)."""
+    model_loaded: bool = getattr(request.app.state, "model_loaded", False)
+    return {"status": "ok" if model_loaded else "degraded", "model_loaded": model_loaded}
 
 
 @app.exception_handler(Exception)
